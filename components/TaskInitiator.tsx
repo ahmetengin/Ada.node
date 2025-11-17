@@ -92,33 +92,39 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, n
     e.preventDefault();
     if (isProcessing) return;
 
+    let taskToSubmit: TaskDetails | null = null;
+
     switch(selectedSkill) {
         case 'routePlanning':
-            if (from && to) onSubmit({ skillName: 'routePlanning', from, to });
+            if (from && to) taskToSubmit = { skillName: 'routePlanning', from, to };
             break;
         case 'bookingConfirmation':
-            if (location && vessel && targetNodeId) onSubmit({ skillName: 'bookingConfirmation', location, vessel, targetNodeId });
+            if (location && vessel && targetNodeId) taskToSubmit = { skillName: 'bookingConfirmation', location, vessel, targetNodeId };
             break;
         case 'bookingAssistance':
-            if (service && assistanceLocation && targetNodeId) onSubmit({ skillName: 'bookingAssistance', service, location: assistanceLocation, targetNodeId });
+            if (service && assistanceLocation && targetNodeId) taskToSubmit = { skillName: 'bookingAssistance', service, location: assistanceLocation, targetNodeId };
             break;
         case 'vesselStatusCheck':
-            if (targetNodeId) onSubmit({ skillName: 'vesselStatusCheck', targetNodeId });
+            if (targetNodeId) taskToSubmit = { skillName: 'vesselStatusCheck', targetNodeId };
             break;
         case 'transactionQuery':
-            if (queryDetails && targetNodeId) onSubmit({ skillName: 'transactionQuery', details: queryDetails, targetNodeId });
+            if (queryDetails && targetNodeId) taskToSubmit = { skillName: 'transactionQuery', details: queryDetails, targetNodeId };
             break;
         case 'fullItinerary':
-            if (from && to && targetNodeId && targetFinanceNodeId && targetTravelNodeId) onSubmit({ skillName: 'fullItinerary', from, to, targetMarinaNodeId: targetNodeId, targetFinanceNodeId, targetTravelNodeId });
+            if (from && to && targetNodeId && targetFinanceNodeId && targetTravelNodeId) taskToSubmit = { skillName: 'fullItinerary', from, to, targetMarinaNodeId: targetNodeId, targetFinanceNodeId, targetTravelNodeId };
             break;
         case 'weeklyReport':
-            if (targetDbNodeId && targetApiNodeId) onSubmit({ skillName: 'weeklyReport', targetDbNodeId, targetApiNodeId });
+            if (targetDbNodeId && targetApiNodeId) taskToSubmit = { skillName: 'weeklyReport', targetDbNodeId, targetApiNodeId };
             break;
         case 'congressOrganization':
             if (eventName && targetCongressNodeId && targetPasskitNodeId && targetFinanceNodeId && targetInterpreterNodeId && targetRestaurantNodeId && targetHukukNodeId) {
-                onSubmit({ skillName: 'congressOrganization', eventName, targetCongressNodeId, targetPasskitNodeId, targetFinanceNodeId, targetInterpreterNodeId, targetRestaurantNodeId, targetHukukNodeId });
+                taskToSubmit = { skillName: 'congressOrganization', eventName, targetCongressNodeId, targetPasskitNodeId, targetFinanceNodeId, targetInterpreterNodeId, targetRestaurantNodeId, targetHukukNodeId };
             }
             break;
+    }
+
+    if (taskToSubmit) {
+        onSubmit(taskToSubmit);
     }
   };
   
@@ -136,7 +142,8 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, n
   );
 
   const renderInputs = () => {
-    if (selectedSkill === 'congressOrganization') {
+    switch (selectedSkill) {
+      case 'congressOrganization':
         return (
             <div className="grid grid-cols-2 gap-2 w-full">
                 <div className="col-span-2">
@@ -151,9 +158,44 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, n
                 {renderNodeSelector('Hukuk', 'hukukNode', targetHukukNodeId, setTargetHukukNodeId, hukukNodes)}
             </div>
         )
+      case 'routePlanning':
+        return (
+          <div className="flex flex-col gap-2 w-full">
+            <div>
+              <label htmlFor="from" className="text-xs text-[var(--color-text-dim)]">From</label>
+              <input id="from" type="text" value={from} onChange={e => setFrom(e.target.value)} className={baseInputClasses} disabled={isProcessing}/>
+            </div>
+            <div>
+              <label htmlFor="to" className="text-xs text-[var(--color-text-dim)]">To</label>
+              <input id="to" type="text" value={to} onChange={e => setTo(e.target.value)} className={baseInputClasses} disabled={isProcessing}/>
+            </div>
+          </div>
+        )
+      case 'fullItinerary':
+        return (
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <div className="col-span-1">
+              <label htmlFor="from-full" className="text-xs text-[var(--color-text-dim)]">From</label>
+              <input id="from-full" type="text" value={from} onChange={e => setFrom(e.target.value)} className={baseInputClasses} disabled={isProcessing}/>
+            </div>
+            <div className="col-span-1">
+              <label htmlFor="to-full" className="text-xs text-[var(--color-text-dim)]">To</label>
+              <input id="to-full" type="text" value={to} onChange={e => setTo(e.target.value)} className={baseInputClasses} disabled={isProcessing}/>
+            </div>
+            {renderNodeSelector('Marina', 'marinaNode-full', targetNodeId, setTargetNodeId, marinaNodes)}
+            {renderNodeSelector('Finance', 'financeNode-full', targetFinanceNodeId, setTargetFinanceNodeId, financeNodes)}
+            {renderNodeSelector('Travel', 'travelNode-full', targetTravelNodeId, setTargetTravelNodeId, travelNodes)}
+          </div>
+        )
+      case 'weeklyReport':
+        return (
+            <div className="grid grid-cols-2 gap-2 w-full">
+                {renderNodeSelector('Database', 'dbNode', targetDbNodeId, setTargetDbNodeId, dbNodes)}
+                {renderNodeSelector('API Gateway', 'apiNode', targetApiNodeId, setTargetApiNodeId, apiNodes)}
+            </div>
+        )
     }
-    // Add other cases if more complex UIs are needed
-    return null;
+    return <div className="text-center text-sm text-[var(--color-text-dim)] p-4">Select a task to see options.</div>;
   };
 
   const getButtonText = () => {
@@ -183,7 +225,7 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, n
             <option value="routePlanning">Route Planning</option>
          </select>
       </div>
-      <div className="flex-grow w-full overflow-y-auto">
+      <div className="flex-grow w-full overflow-y-auto pr-2">
           {renderInputs()}
       </div>
       <button

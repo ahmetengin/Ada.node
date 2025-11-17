@@ -45,6 +45,9 @@ export enum LogType {
   ACK = 'ACK',
   RETRY = 'RETRY',
   THINKING = 'THINKING',
+  VOTING = 'VOTING',
+  CONSENSUS = 'CONSENSUS',
+  BACKTRACK = 'BACKTRACK',
 }
 
 export interface LogEntry {
@@ -102,4 +105,18 @@ export type TaskDetails =
 export interface RouteData {
   from: { name: string; coords: GeoPoint };
   to: { name: string; coords: GeoPoint };
+}
+
+export interface VoteOutcome {
+  isConsensus: boolean;
+  majorityDecision: string | null;
+  confidence: number;
+  voteDistribution: Record<string, number>;
+  rawResponses: VotableResponse[];
+}
+
+export interface VotableResponse {
+    decision: string;
+    reason: string;
+    confidence: number;
 }

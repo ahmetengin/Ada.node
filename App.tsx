@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAdaNode } from './hooks/useAdaNode';
 import Header from './components/Header';
 import NodeStatusPanel from './components/NodeStatusPanel';
@@ -8,14 +8,23 @@ import TaskInitiator from './components/TaskInitiator';
 import { useLiveConversation } from './hooks/useLiveConversation';
 import MapPanel from './components/MapPanel';
 import LiveConversationPanel from './components/LiveConversationPanel';
+import { TaskDetails } from './types';
 
 const App: React.FC = () => {
-  const { nodes, skills, logs, route, isProcessing, executeTask, activeSkill, activeConnections, addNode } = useAdaNode();
+  const [isVotingEnabled, setIsVotingEnabled] = useState(false);
+  const { nodes, skills, logs, route, isProcessing, executeTask, activeSkill, activeConnections, addNode, loadStateFromLocalStorage } = useAdaNode();
   const conversation = useLiveConversation();
+
+  const handleExecuteTask = (task: TaskDetails) => {
+    executeTask(task, isVotingEnabled);
+  }
 
   return (
     <div className="min-h-screen text-gray-200 font-sans flex flex-col relative">
-      <Header />
+      <Header 
+        isVotingEnabled={isVotingEnabled}
+        onToggleVoting={setIsVotingEnabled}
+      />
       <main className="flex-grow p-4 md:p-6 grid gap-6" 
           style={{ 
               gridTemplateAreas: `
@@ -32,12 +41,18 @@ const App: React.FC = () => {
         </div>
         
         <div style={{ gridArea: 'nodes' }} className="flex flex-col min-h-0">
-            <NodeStatusPanel nodes={nodes} isProcessing={isProcessing} activeConnections={activeConnections} addNode={addNode} />
+            <NodeStatusPanel 
+              nodes={nodes} 
+              isProcessing={isProcessing} 
+              activeConnections={activeConnections} 
+              addNode={addNode} 
+              restoreFromCheckpoint={loadStateFromLocalStorage}
+            />
         </div>
 
         <div style={{ gridArea: 'tasks' }} className="flex flex-col min-h-0">
             <TaskInitiator 
-              onSubmit={executeTask} 
+              onSubmit={handleExecuteTask} 
               isProcessing={isProcessing || conversation.status !== 'idle'}
               nodes={nodes}
             />

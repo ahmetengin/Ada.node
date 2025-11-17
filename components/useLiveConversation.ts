@@ -34,12 +34,6 @@ export const useLiveConversation = () => {
     const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
     const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     
-    // FIX: Add a ref to track the current status to avoid stale closures in callbacks.
-    const statusRef = useRef(status);
-    useEffect(() => {
-        statusRef.current = status;
-    }, [status]);
-
     // Refs for video processing
     const segmenterRef = useRef<any>(null);
     const rawVideoRef = useRef<HTMLVideoElement>(document.createElement('video'));
@@ -232,8 +226,7 @@ export const useLiveConversation = () => {
                         // Send video frames from the processed canvas
                         const frameInterval = setInterval(() => {
                            canvasRef.current.toBlob(async (blob) => {
-                                // FIX: Use statusRef to get the latest status and avoid stale closures.
-                                if (blob && (statusRef.current === 'connected' || statusRef.current === 'connecting')) {
+                                if (blob && (status === 'connected' || status === 'connecting')) {
                                     const base64Data = await blobToBase64(blob);
                                     sessionPromiseRef.current?.then((session) => {
                                         session.sendRealtimeInput({
@@ -281,8 +274,7 @@ export const useLiveConversation = () => {
                         stopConversation();
                     },
                     onclose: () => {
-                        // FIX: Use statusRef to check the latest status and avoid resetting from 'error' to 'idle'.
-                        if (statusRef.current !== 'error') setStatus('idle');
+                        if (status !== 'error') setStatus('idle');
                     },
                 },
                 config: {
