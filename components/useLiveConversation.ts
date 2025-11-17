@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { GoogleGenAI, LiveSession, LiveServerMessage, Modality } from '@google/genai';
+// FIX: The `LiveSession` type is not exported by the library.
+import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { ConversationStatus, TranscriptionEntry } from '../types';
 import { createBlob, decode, decodeAudioData, blobToBase64 } from '../utils/audio';
 
@@ -27,7 +28,8 @@ export const useLiveConversation = () => {
     const [processedStream, setProcessedStream] = useState<MediaStream | null>(null);
 
     const aiRef = useRef<GoogleGenAI | null>(null);
-    const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
+    // FIX: The `LiveSession` type is not exported by the library, using `any`.
+    const sessionPromiseRef = useRef<Promise<any> | null>(null);
     const micStreamRef = useRef<MediaStream | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
     const outputAudioContextRef = useRef<AudioContext | null>(null);
@@ -40,6 +42,12 @@ export const useLiveConversation = () => {
     const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
     const animationFrameIdRef = useRef<number | null>(null);
     const bgImageRef = useRef<HTMLImageElement>(new Image());
+
+    // FIX: Add a ref to track the current status to avoid stale closures in callbacks.
+    const statusRef = useRef(status);
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status]);
 
     const currentInputTranscriptionRef = useRef('');
     const currentOutputTranscriptionRef = useRef('');
@@ -226,7 +234,8 @@ export const useLiveConversation = () => {
                         // Send video frames from the processed canvas
                         const frameInterval = setInterval(() => {
                            canvasRef.current.toBlob(async (blob) => {
-                                if (blob && (status === 'connected' || status === 'connecting')) {
+                                // FIX: Use statusRef to get the latest status and avoid stale closures.
+                                if (blob && (statusRef.current === 'connected' || statusRef.current === 'connecting')) {
                                     const base64Data = await blobToBase64(blob);
                                     sessionPromiseRef.current?.then((session) => {
                                         session.sendRealtimeInput({
@@ -274,7 +283,8 @@ export const useLiveConversation = () => {
                         stopConversation();
                     },
                     onclose: () => {
-                        if (status !== 'error') setStatus('idle');
+                        // FIX: Use statusRef to check the latest status and avoid resetting from 'error' to 'idle'.
+                        if (statusRef.current !== 'error') setStatus('idle');
                     },
                 },
                 config: {

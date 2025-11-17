@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { GoogleGenAI, LiveSession, LiveServerMessage, Modality } from '@google/genai';
+// FIX: The `LiveSession` type is not exported by the library.
+import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { ConversationStatus, TranscriptionEntry } from '../types';
 import { createBlob, decode, decodeAudioData, blobToBase64 } from '../utils/audio';
 
@@ -27,7 +28,8 @@ export const useLiveConversation = () => {
     const [processedStream, setProcessedStream] = useState<MediaStream | null>(null);
 
     const aiRef = useRef<GoogleGenAI | null>(null);
-    const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
+    // FIX: The `LiveSession` type is not exported by the library, using `any`.
+    const sessionPromiseRef = useRef<Promise<any> | null>(null);
     const micStreamRef = useRef<MediaStream | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
     const outputAudioContextRef = useRef<AudioContext | null>(null);
