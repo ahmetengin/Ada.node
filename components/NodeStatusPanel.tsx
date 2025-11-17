@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Node, NodeType } from '../types';
-import { Server, Waves, Anchor, CloudSun, PlusCircle, X, Landmark } from 'lucide-react';
+import { Server, Waves, Anchor, CloudSun, PlusCircle, X, Landmark, Globe, Database, Webhook, Clock, Presentation, Users, Gavel, Languages, Scale, Wrench, Ticket, Utensils, MessageSquare } from 'lucide-react';
 
 interface NodeStatusPanelProps {
   nodes: Node[];
@@ -18,18 +18,25 @@ const NodeIcon: React.FC<{ type: NodeType; status: Node['status'] }> = ({ type, 
   const iconProps = { size: 24, className: `transition-colors duration-300 ${color}` };
   
   switch (type) {
-    case NodeType.CENTRAL:
-      return <Server {...iconProps} />;
-    case NodeType.SEA:
-      return <Waves {...iconProps} />;
-    case NodeType.MARINA:
-      return <Anchor {...iconProps} />;
-    case NodeType.WEATHER:
-      return <CloudSun {...iconProps} />;
-    case NodeType.FINANCE:
-      return <Landmark {...iconProps} />;
-    default:
-      return null;
+    case NodeType.CENTRAL: return <Server {...iconProps} />;
+    case NodeType.SEA: return <Waves {...iconProps} />;
+    case NodeType.MARINA: return <Anchor {...iconProps} />;
+    case NodeType.WEATHER: return <CloudSun {...iconProps} />;
+    case NodeType.FINANCE: return <Landmark {...iconProps} />;
+    case NodeType.TRAVEL: return <Globe {...iconProps} />;
+    case NodeType.DB: return <Database {...iconProps} />;
+    case NodeType.API: return <Webhook {...iconProps} />;
+    case NodeType.CRON: return <Clock {...iconProps} />;
+    case NodeType.CONGRESS: return <Presentation {...iconProps} />;
+    case NodeType.CUSTOMER: return <Users {...iconProps} />;
+    case NodeType.HUKUK: return <Gavel {...iconProps} />;
+    case NodeType.INTERPRETER: return <Languages {...iconProps} />;
+    case NodeType.LEGAL: return <Scale {...iconProps} />;
+    case NodeType.MAINTENANCE: return <Wrench {...iconProps} />;
+    case NodeType.PASSKIT: return <Ticket {...iconProps} />;
+    case NodeType.RESTAURANT: return <Utensils {...iconProps} />;
+    case NodeType.CHATBOT: return <MessageSquare {...iconProps} />;
+    default: return null;
   }
 };
 
@@ -61,7 +68,7 @@ const getNodePosition = (index: number, total: number, center: { x: number; y: n
 
 const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, onDone: () => void }> = ({ addNode, onDone }) => {
     const [name, setName] = useState('');
-    const [type, setType] = useState<NodeType>(NodeType.MARINA);
+    const [type, setType] = useState<NodeType>(NodeType.CONGRESS);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,16 +82,33 @@ const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, o
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700 animate-fade-in">
             <h4 className="text-sm font-semibold text-gray-300">Yeni Düğüm Klonla</h4>
              <select value={type} onChange={e => setType(e.target.value as NodeType)} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white text-sm focus:ring-2 focus:ring-cyan-500 focus:outline-none">
-                 <option value={NodeType.MARINA}>Marina (ada.marina.&lt;tenant&gt;)</option>
-                 <option value={NodeType.SEA}>Yat (ada.sea.&lt;tenant&gt;)</option>
-                 <option value={NodeType.FINANCE}>Finance (ada.finance.&lt;tenant&gt;)</option>
-                 <option value={NodeType.WEATHER}>Hava Düğümü</option>
+                 <optgroup label="Uzman Agent'lar">
+                    <option value={NodeType.CONGRESS}>Congress (ada.congress.&lt;tenant&gt;)</option>
+                    <option value={NodeType.CUSTOMER}>Customer (ada.customer.&lt;tenant&gt;)</option>
+                    <option value={NodeType.FINANCE}>Finance (ada.finance.&lt;tenant&gt;)</option>
+                    <option value={NodeType.HUKUK}>Hukuk (ada.hukuk.&lt;tenant&gt;)</option>
+                    <option value={NodeType.INTERPRETER}>Interpreter (ada.interpreter.&lt;tenant&gt;)</option>
+                    <option value={NodeType.LEGAL}>Legal (ada.legal.&lt;tenant&gt;)</option>
+                    <option value={NodeType.MAINTENANCE}>Maintenance (ada.maintenance.&lt;tenant&gt;)</option>
+                    <option value={NodeType.MARINA}>Marina (ada.marina.&lt;tenant&gt;)</option>
+                    <option value={NodeType.PASSKIT}>Passkit (ada.passkit.&lt;tenant&gt;)</option>
+                    <option value={NodeType.RESTAURANT}>Restaurant (ada.restaurant.&lt;tenant&gt;)</option>
+                    <option value={NodeType.SEA}>Yat (ada.sea.&lt;tenant&gt;)</option>
+                    <option value={NodeType.TRAVEL}>Travel Agency (ada.travel.&lt;tenant&gt;)</option>
+                    <option value={NodeType.CHATBOT}>Chatbot (ada.chatbot.&lt;tenant&gt;)</option>
+                 </optgroup>
+                 <optgroup label="Altyapı Agent'ları">
+                    <option value={NodeType.DB}>Database (ada.db.&lt;tenant&gt;)</option>
+                    <option value={NodeType.API}>API Gateway (ada.api.&lt;tenant&gt;)</option>
+                    <option value={NodeType.CRON}>Scheduler (ada.cron.&lt;tenant&gt;)</option>
+                    <option value={NodeType.WEATHER}>Hava Düğümü</option>
+                 </optgroup>
              </select>
             <input 
                 type="text" 
                 value={name} 
                 onChange={e => setName(e.target.value)} 
-                placeholder="Örn: Midilli, Wim, Yacht-A"
+                placeholder="Örn: Midilli, Wim, Main"
                 className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white text-sm focus:ring-2 focus:ring-cyan-500 focus:outline-none"
             />
             <button type="submit" className="w-full text-sm bg-cyan-600 text-white font-semibold rounded-md p-2 hover:bg-cyan-500 transition-colors">
@@ -96,19 +120,25 @@ const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, o
 
 
 const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, activeConnections, addNode }) => {
-  const width = 280;
-  const height = 280;
+  const width = 320; // Increased width for more nodes
+  const height = 320; // Increased height
   const center = { x: width / 2, y: height / 2 };
-  const radius = 110;
+  const radius = 130; // Increased radius
 
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const nodePositions = nodes.map((node, i) => ({
+  // Filter out the central node for positioning, then add it back at the start
+  const peripheralNodes = nodes.filter(n => n.type !== NodeType.CENTRAL);
+  const centralNode = nodes.find(n => n.type === NodeType.CENTRAL);
+  const sortedNodes = centralNode ? [centralNode, ...peripheralNodes] : peripheralNodes;
+
+
+  const nodePositions = sortedNodes.map((node, i) => ({
       ...node,
-      pos: getNodePosition(i, nodes.length, center, radius)
+      pos: getNodePosition(i, sortedNodes.length, center, radius)
   }));
   
-  const centralNode = nodePositions.find(n => n.type === NodeType.CENTRAL);
+  const centralNodePos = nodePositions.find(n => n.type === NodeType.CENTRAL);
 
   return (
     <div className="bg-gray-800/50 rounded-2xl p-6 shadow-lg ring-1 ring-white/10 flex flex-col items-center">
@@ -133,10 +163,10 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, activeConnecti
             </defs>
             
             {/* Render static base lines from coordinator to other nodes */}
-            {centralNode && nodePositions.filter(n => n.type !== NodeType.CENTRAL).map(node => (
+            {centralNodePos && nodePositions.filter(n => n.type !== NodeType.CENTRAL).map(node => (
                 <line 
-                    key={`base-${centralNode.id}-${node.id}`}
-                    x1={centralNode.pos.x} y1={centralNode.pos.y}
+                    key={`base-${centralNodePos.id}-${node.id}`}
+                    x1={centralNodePos.pos.x} y1={centralNodePos.pos.y}
                     x2={node.pos.x} y2={node.pos.y}
                     stroke="rgba(75, 85, 99, 0.5)"
                     strokeWidth={2}

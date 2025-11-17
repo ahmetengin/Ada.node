@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BotMessageSquare } from 'lucide-react';
 
@@ -8,8 +7,8 @@ const Header: React.FC = () => {
       <div className="flex items-center gap-4">
         <BotMessageSquare className="w-10 h-10 text-cyan-400" />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Ada Node</h1>
-          <p className="text-sm text-gray-400">Merkezi AI Koordinatörü Arayüzü</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Ada Gözlemcisi</h1>
+          <p className="text-sm text-gray-400">Çoklu Agent Gözlem Arayüzü</p>
         </div>
       </div>
     </header>

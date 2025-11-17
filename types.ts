@@ -4,6 +4,20 @@ export enum NodeType {
   MARINA = 'ada.marina',
   WEATHER = 'ada.weather',
   FINANCE = 'ada.finance',
+  TRAVEL = 'ada.travel',
+  DB = 'ada.db',
+  API = 'ada.api',
+  CRON = 'ada.cron',
+  // New, more granular agent types based on user's repositories
+  CONGRESS = 'ada.congress',
+  CUSTOMER = 'ada.customer',
+  HUKUK = 'ada.hukuk',
+  INTERPRETER = 'ada.interpreter',
+  LEGAL = 'ada.legal',
+  MAINTENANCE = 'ada.maintenance',
+  PASSKIT = 'ada.passkit',
+  RESTAURANT = 'ada.restaurant',
+  CHATBOT = 'ada.chatbot',
 }
 
 export interface Node {
@@ -30,6 +44,7 @@ export enum LogType {
   LEARNING = 'LEARNING',
   ACK = 'ACK',
   RETRY = 'RETRY',
+  THINKING = 'THINKING',
 }
 
 export interface LogEntry {
@@ -58,7 +73,31 @@ export type TaskDetails =
   | { skillName: 'bookingConfirmation'; location: string; vessel: string; targetNodeId: string; }
   | { skillName: 'bookingAssistance'; service: string; location: string; targetNodeId: string; }
   | { skillName: 'vesselStatusCheck'; targetNodeId: string; }
-  | { skillName: 'transactionQuery'; details: string; targetNodeId: string; };
+  | { skillName: 'transactionQuery'; details: string; targetNodeId: string; }
+  | { 
+      skillName: 'fullItinerary'; 
+      from: string; 
+      to: string; 
+      targetMarinaNodeId: string; 
+      targetFinanceNodeId: string;
+      targetTravelNodeId: string;
+    }
+  | {
+      skillName: 'weeklyReport';
+      targetDbNodeId: string;
+      targetApiNodeId: string;
+    }
+  | {
+      skillName: 'congressOrganization';
+      eventName: string;
+      targetCongressNodeId: string;
+      targetPasskitNodeId: string;
+      targetFinanceNodeId: string;
+      targetInterpreterNodeId: string;
+      targetRestaurantNodeId: string;
+      targetHukukNodeId: string;
+    };
+
 
 export interface RouteData {
   from: { name: string; coords: GeoPoint };

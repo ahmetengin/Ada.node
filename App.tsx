@@ -30,7 +30,7 @@ const App: React.FC = () => {
           <div className="flex-grow p-6 flex flex-col gap-6 overflow-y-auto">
             <h2 className="text-2xl font-bold text-cyan-300 flex items-center gap-3">
               <BrainCircuit size={28} />
-              <span>Central Coordination Unit</span>
+              <span>Gözlemci Paneli</span>
             </h2>
             {route && <MapPanel route={route} />}
             <TaskInitiator 

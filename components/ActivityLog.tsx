@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { LogEntry, LogType } from '../types';
-import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb } from 'lucide-react';
 
 interface ActivityLogProps {
   logs: LogEntry[];
@@ -25,6 +24,8 @@ const getLogStyle = (type: LogType) => {
       return { icon: <CheckCheck size={16} />, color: 'text-teal-400', };
     case LogType.RETRY:
       return { icon: <RefreshCw size={16} />, color: 'text-orange-400', };
+    case LogType.THINKING:
+      return { icon: <Lightbulb size={16} />, color: 'text-gray-400', };
     default:
       return { icon: <Info size={16} />, color: 'text-gray-400', };
   }
