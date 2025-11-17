@@ -1,0 +1,8 @@
+{
+  "name": "Ada Node AI Coordinator",
+  "description": "A web-based interface to visualize and interact with Ada Node, a central AI coordinator for a distributed mesh network. It showcases node status, skills, and a real-time activity log powered by generative AI.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
