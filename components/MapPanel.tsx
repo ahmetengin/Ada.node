@@ -37,24 +37,19 @@ const MapPanel: React.FC<MapPanelProps> = ({ route }) => {
     const map = mapRef.current;
     if (!map || !route) return;
 
-    // Clear previous route layer if it exists
     if (routeLayerRef.current) {
       map.removeLayer(routeLayerRef.current);
     }
 
-    // Create a new layer group for the route
     const routeLayer = L.layerGroup();
-
     const fromLatLng = [route.from.coords.lat, route.from.coords.lng];
     const toLatLng = [route.to.coords.lat, route.to.coords.lng];
 
-    // Add markers
-    const fromMarker = L.marker(fromLatLng).bindPopup(`<b>Kalkış:</b> ${route.from.name}`);
-    const toMarker = L.marker(toLatLng).bindPopup(`<b>Varış:</b> ${route.to.name}`);
+    const fromMarker = L.marker(fromLatLng).bindPopup(`<b>Departure:</b> ${route.from.name}`);
+    const toMarker = L.marker(toLatLng).bindPopup(`<b>Arrival:</b> ${route.to.name}`);
     
-    // Add a line for the route
     const polyline = L.polyline([fromLatLng, toLatLng], { 
-        color: '#06b6d4', // cyan-500
+        color: 'var(--color-primary)',
         weight: 3,
         opacity: 0.8,
         dashArray: '5, 10'
@@ -63,39 +58,23 @@ const MapPanel: React.FC<MapPanelProps> = ({ route }) => {
     routeLayer.addLayer(fromMarker);
     routeLayer.addLayer(toMarker);
     routeLayer.addLayer(polyline);
-
-    // Add the new layer to the map and store a reference to it
     routeLayer.addTo(map);
     routeLayerRef.current = routeLayer;
 
-    // Fit map to the route bounds
     map.fitBounds([fromLatLng, toLatLng], { padding: [50, 50] });
 
   }, [route]);
 
   return (
-    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 flex flex-col gap-4">
-      <h4 className="text-md font-semibold text-cyan-300 flex items-center gap-2">
+    <div className="panel-glow p-3 flex flex-col gap-2">
+      <h4 className="text-md font-semibold text-[var(--color-primary)] flex items-center gap-2">
         <Map size={18} />
-        <span>Planlanan Rota</span>
+        <span>Planned Route</span>
       </h4>
       <div 
         ref={mapContainerRef} 
-        className="h-64 w-full rounded-md z-0" // z-0 is important for leaflet
+        className="h-40 w-full rounded-md z-0"
       ></div>
-       <div className="flex justify-around text-center text-sm">
-            <div>
-                <p className="text-gray-400">Kalkış</p>
-                <p className="font-bold text-lg text-white">{route.from.name}</p>
-            </div>
-            <div className="flex items-center text-cyan-400">
-                <PlaneTakeoff size={24} />
-            </div>
-            <div>
-                <p className="text-gray-400">Varış</p>
-                <p className="font-bold text-lg text-white">{route.to.name}</p>
-            </div>
-        </div>
     </div>
   );
 };

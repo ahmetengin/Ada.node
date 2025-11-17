@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Skill } from '../types';
 import { Cog } from 'lucide-react';
 
@@ -8,28 +8,58 @@ interface SkillsPanelProps {
 }
 
 const SkillsPanel: React.FC<SkillsPanelProps> = ({ skills, activeSkill }) => {
+  const [leveledUpSkills, setLeveledUpSkills] = useState<Set<string>>(new Set());
+  const prevSkillsRef = useRef<Omit<Skill, 'execute'>[]>(skills);
+
+  useEffect(() => {
+    const changed = new Set<string>();
+    const prevMap = new Map(prevSkillsRef.current.map(s => [s.name, s.level]));
+
+    skills.forEach(skill => {
+        const prevLevel = prevMap.get(skill.name);
+        if (prevLevel !== undefined && skill.level > prevLevel) {
+            changed.add(skill.name);
+        }
+    });
+
+    if (changed.size > 0) {
+        setLeveledUpSkills(changed);
+        const timer = setTimeout(() => {
+            setLeveledUpSkills(new Set());
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }
+
+    prevSkillsRef.current = skills;
+  }, [skills]);
+
   return (
-    <div className="bg-gray-800/50 rounded-2xl p-6 shadow-lg ring-1 ring-white/10">
-      <h3 className="text-lg font-semibold text-cyan-300 mb-4 flex items-center gap-2">
+    <div className="panel-glow p-4 flex flex-col h-full">
+      <h3 className="text-lg font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2 flex-shrink-0" style={{ textShadow: `0 0 5px var(--color-primary-glow)`}}>
         <Cog size={20} />
-        <span>Yetenekler</span>
+        <span>Skills</span>
       </h3>
-      <ul className="space-y-4">
+      <ul className="space-y-4 overflow-y-auto pr-2">
         {skills.map((skill) => {
           const isActive = skill.name === activeSkill;
+          const hasLeveledUp = leveledUpSkills.has(skill.name);
           return (
-          <li key={skill.name} className={`p-2 -m-2 rounded-lg transition-all duration-300 ${isActive ? 'shadow-[0_0_15px_rgba(34,211,238,0.7)]' : ''}`}>
-            <div className="flex justify-between items-center mb-1">
-              <p className="font-medium text-sm text-gray-300">{skill.name}</p>
-              <p className="text-xs font-mono text-cyan-400">LVL {Math.floor(skill.level)}</p>
+          <li key={skill.name} className={`p-3 rounded-lg transition-all duration-300 ${isActive ? 'bg-[var(--color-primary)]/20' : ''} ${hasLeveledUp ? 'animate-pulse-green' : ''}`}>
+            <div className="flex justify-between items-center mb-1.5">
+              <p className="font-medium text-sm text-[var(--color-text)]">{skill.name}</p>
+              <p className="text-xs font-mono text-[var(--color-primary)]">LVL {Math.floor(skill.level)}</p>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2.5">
+            <div className="w-full bg-[var(--color-primary)]/10 rounded-full h-1.5 overflow-hidden">
               <div
-                className="bg-cyan-500 h-2.5 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${skill.level * 10}%` }}
+                className="bg-[var(--color-primary)] h-1.5 rounded-full transition-all duration-500 ease-out"
+                style={{ 
+                  width: `${skill.level * 10}%`,
+                  boxShadow: `0 0 8px var(--color-primary-glow)`
+                }}
               ></div>
             </div>
-            <p className="text-xs text-gray-400 mt-1">{skill.description}</p>
+            <p className="text-xs text-[var(--color-text-dim)] mt-1.5">{skill.description}</p>
           </li>
         )})}
       </ul>
