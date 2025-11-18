@@ -263,7 +263,11 @@ export const useLiveConversation = () => {
                             currentInputTranscriptionRef.current = '';
                             currentOutputTranscriptionRef.current = '';
                         }
-                        const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData.data;
+                        
+                        // FIX: Safely find the audio data part to prevent crashes.
+                        const audioPart = message.serverContent?.modelTurn?.parts?.find(p => p.inlineData);
+                        const base64Audio = audioPart?.inlineData?.data;
+
                         if (base64Audio && outputAudioContextRef.current) {
                             nextStartTime = Math.max(nextStartTime, outputAudioContextRef.current.currentTime);
                             const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContextRef.current, 24000, 1);

@@ -173,7 +173,6 @@ export const useAdaNode = () => {
     responsePrompt: string,
     ackMessage: string,
     isVotingEnabled = false,
-    // FIX: Add voterCount to function signature to be passed down.
     voterCount = 3
   ) => {
     const fromNode = nodes.find(n => n.id === fromNodeId);
@@ -187,11 +186,9 @@ export const useAdaNode = () => {
     let finalResponseMsg: string;
 
     if (isVotingEnabled) {
-        // FIX: Update log to show the number of voters.
         addLog(LogType.VOTING, `Running majority vote with ${voterCount} agents for task: ${requestPrompt.substring(0, 80)}...`, fromNode.name);
         // Create a more specific prompt for voting
-        const votingPrompt = `You are an AI agent. Your task is to decide the next action. The context is: "${requestPrompt}". Your response should be a JSON object with "decision", "reason", and "confidence" (0.0-1.0). The decision should be a short, actionable phrase.`;
-        // FIX: Pass voterCount to the voting service.
+        const votingPrompt = `You are an AI agent. Your task is to decide the next action based on the context: "${requestPrompt}". Your response MUST be a JSON object with "decision", "reason", and "confidence" (0.0-1.0). The 'decision' field MUST be one of the following exact strings: ['CONFIRM', 'REJECT'].`;
         const voteResult = await performMajorityVote(votingPrompt, voterCount);
 
         const voteDistString = JSON.stringify(voteResult.voteDistribution);
@@ -221,13 +218,11 @@ export const useAdaNode = () => {
     await sleep(500);
   }, [addLog, updateNodeStatus, nodes]);
 
-  // FIX: Add voterCount to the function signature to receive it from the UI.
   const executeTask = useCallback(async (task: TaskDetails, isVotingEnabled: boolean, voterCount: number) => {
     setIsProcessing(true);
     setActiveSkill(task.skillName);
     addLog(LogType.INFO, `Gözlemci tarafından yeni görev enjekte edildi: ${task.skillName}`, 'Observer');
     await sleep(200);
-    // FIX: Update log to show voter count when MAKER mode is on.
     addLog(LogType.INFO, `Bağlantı FastRTC mesh protokolü üzerinden kuruluyor... (MAKER Mode: ${isVotingEnabled ? `ON, Voters: ${voterCount}` : 'OFF'})`, 'Ada Koordinatör');
 
     if (task.skillName === 'routePlanning' || task.skillName === 'fullItinerary') setRoute(null); // Clear previous route
@@ -235,7 +230,6 @@ export const useAdaNode = () => {
 
     try {
       const coordinatorId = 'ada-central';
-      // FIX: Add voterCount to parameters passed to the communication simulation.
       const commonCommParams = (req: string, res: string, ack: string) => [req, res, ack, isVotingEnabled, voterCount] as const;
       
       switch (task.skillName) {

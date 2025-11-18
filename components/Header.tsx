@@ -1,5 +1,5 @@
 import React from 'react';
-import { BotMessageSquare } from 'lucide-react';
+import { BotMessageSquare, Info } from 'lucide-react';
 
 interface HeaderProps {
   isVotingEnabled: boolean;
@@ -7,10 +7,18 @@ interface HeaderProps {
 }
 
 const MakerModeToggle: React.FC<HeaderProps> = ({ isVotingEnabled, onToggleVoting }) => (
-  <div className="flex items-center gap-2">
-    <label htmlFor="maker-toggle" className="text-sm font-medium text-[var(--color-text-dim)] cursor-pointer">
-      MAKER Mode
-    </label>
+  <div className="flex items-center gap-4">
+    <div className="relative flex items-center gap-1.5 group">
+      <label htmlFor="maker-toggle" className="text-sm font-medium text-[var(--color-text-dim)] cursor-pointer">
+        MAKER Mode
+      </label>
+      <Info size={14} className="text-[var(--color-text-dim)]" />
+      <div
+        className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-72 p-3 text-xs text-center text-[var(--color-text)] bg-[var(--color-panel)] border border-[var(--color-primary)]/20 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20"
+      >
+        Enables a more robust, but slower, decision-making process using majority voting among multiple AI agents and automatic backtracking on failure.
+      </div>
+    </div>
     <button
       id="maker-toggle"
       role="switch"
