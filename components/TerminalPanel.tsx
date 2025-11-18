@@ -109,16 +109,19 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ logs, onCommandSubmit, ag
   };
 
   return (
-    <div className="panel-glow p-4 flex flex-col h-full max-h-[25vh] min-h-[150px]">
-      <h3 className="text-sm font-semibold text-[var(--color-text-dim)] mb-2 flex items-center gap-2 flex-shrink-0 border-b border-white/10 pb-2">
-        <Terminal size={16} className="text-[var(--color-primary)]" />
-        <span>MCP TERMINAL</span>
-      </h3>
+    <div className="panel-glow p-4 flex flex-col h-full max-h-[30vh] min-h-[200px]">
+      <div className="flex-shrink-0 flex justify-between items-center mb-2 border-b border-white/10 pb-2">
+          <h3 className="text-sm font-semibold text-[var(--color-text-dim)] flex items-center gap-2">
+            <Terminal size={16} className="text-[var(--color-primary)]" />
+            <span>MCP TERMINAL</span>
+          </h3>
+          <span className="text-xs text-gray-500">Showing last {logs.length} entries</span>
+      </div>
       <div ref={scrollRef} className="flex-grow bg-black/30 rounded-lg p-2 overflow-y-auto font-mono text-xs" onClick={() => inputRef.current?.focus()}>
         {logs.slice().reverse().map((log) => (
           <div key={log.id} className="flex items-start gap-2">
             <span className="text-gray-600">{log.timestamp}</span>
-            <span className="flex-shrink-0 w-16 text-right font-bold text-cyan-400">{log.source || 'System'}</span>
+            <span className="flex-shrink-0 w-24 text-right font-bold text-cyan-400">{log.source || 'System'}</span>
             <div className="flex-grow flex gap-2 items-start">
               {getLogIcon(log.type)}
               <p className="whitespace-pre-wrap">{log.message}</p>
@@ -149,7 +152,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ logs, onCommandSubmit, ag
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             className="w-full bg-transparent outline-none text-gray-200 font-mono text-sm"
-            placeholder="Type 'run <agent> <skill>' or 'help'..."
+            placeholder="Type 'run travel_agent flight_booking' or 'help'..."
             spellCheck="false"
             autoComplete="off"
           />

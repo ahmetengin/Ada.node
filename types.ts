@@ -1,11 +1,9 @@
 export enum NodeType {
   CENTRAL = 'ada.central',
-  // New agent module types from config
   TRAVEL_AGENT = 'travel_agent',
-  PAYMENT_AGENT = 'payment_agent',
   CRM_AGENT = 'crm_agent',
-  YACHT_TACTICAL_AGENT = 'yacht_tactical_agent',
-  // Keep generic types for manual adding if needed
+  FINANCE_AGENT = 'finance_agent',
+  MARITIME_AGENT = 'maritime_agent',
   GENERIC = 'ada.generic',
 }
 
@@ -14,10 +12,9 @@ export interface Node {
   name: string;
   type: NodeType;
   status: 'online' | 'offline' | 'processing' | 'sealing';
-  instanceName?: string; 
+  instanceName?: string;
 }
 
-// New "Capability Matrix" data structures
 export interface Tool {
   id: string;
   description: string;
@@ -54,20 +51,25 @@ export interface AgentFrameworkConfig {
   };
 }
 
-// TaskDetails for execution, now reflects the hierarchy
 export interface TaskDetails {
   agentId: string;
   skillId?: string;
   providerId?: string;
   toolId?: string;
+  initialContext?: Record<string, any>;
+}
+
+export interface TaskContext {
+  customerProfile?: any;
+  [key: string]: any;
 }
 
 export interface ToolOutput {
   toolId: string;
   providerId: string;
   response: VotableResponse | null;
+  data?: any;
 }
-
 
 export enum LogType {
   INFO = 'INFO',
@@ -86,6 +88,9 @@ export enum LogType {
   TIMEOUT = 'TIMEOUT',
   TOOL_SELECTION = 'TOOL_SELECTION',
   SEAL = 'SEAL',
+  CONTEXT_ENRICHMENT = 'CONTEXT_ENRICHMENT',
+  WORKFLOW_STEP = 'WORKFLOW_STEP',
+  MCP_DECISION = 'MCP_DECISION',
 }
 
 export interface LogEntry {
@@ -127,7 +132,7 @@ export interface VoteOutcome {
 }
 
 export interface VotableResponse {
-    decision: string;
-    reason:string;
-    confidence: number;
+  decision: string;
+  reason: string;
+  confidence: number;
 }
