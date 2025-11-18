@@ -33,19 +33,23 @@ const getLogStyle = (type: LogType) => {
 };
 
 const VoteDistributionChart: React.FC<{ distribution: Record<string, number> }> = ({ distribution }) => {
-    const totalVotes = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+    // FIX: Refactored to use Object.keys to ensure correct type inference for vote counts.
+    const totalVotes = Object.keys(distribution).reduce((sum, key) => sum + distribution[key], 0);
     if (totalVotes === 0) return null;
     const getBarColor = (decision: string) => decision.includes('confirm') ? 'bg-green-500' : 'bg-red-500';
     return (
         <div className="mt-2 space-y-1.5 pr-2">
-            {Object.entries(distribution).map(([decision, count]) => (
-                <div key={decision} className="flex items-center gap-2 text-xs">
-                    <span className="w-20 capitalize text-gray-400 truncate">{decision} ({count})</span>
-                    <div className="flex-grow bg-black/40 rounded-full h-3">
-                        <div className={`h-3 rounded-full ${getBarColor(decision)}`} style={{ width: `${(count / totalVotes) * 100}%`}}/>
+            {Object.keys(distribution).map((decision) => {
+                const count = distribution[decision];
+                return (
+                    <div key={decision} className="flex items-center gap-2 text-xs">
+                        <span className="w-20 capitalize text-gray-400 truncate">{decision} ({count})</span>
+                        <div className="flex-grow bg-black/40 rounded-full h-3">
+                            <div className={`h-3 rounded-full ${getBarColor(decision)}`} style={{ width: `${(count / totalVotes) * 100}%`}}/>
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 };

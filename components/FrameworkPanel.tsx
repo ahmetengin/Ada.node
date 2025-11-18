@@ -32,7 +32,10 @@ const FrameworkPanel: React.FC<FrameworkPanelProps> = ({ agentFrameworkConfig, o
     <div className="flex flex-col h-full">
       <h3 className="text-lg font-semibold text-[var(--color-primary)] mb-4 flex-shrink-0 px-2">Agent Framework</h3>
       <div className="flex-grow overflow-y-auto pr-2 text-sm space-y-4">
-        {Object.entries(modules).map(([agentId, agentModule]) => (
+        {/* FIX: Refactored from Object.entries to Object.keys to fix type inference issue on agentModule. */}
+        {Object.keys(modules).map((agentId) => {
+          const agentModule = modules[agentId];
+          return (
           <div key={agentId}>
             <div 
               className="flex items-center gap-2 mb-2 p-2 rounded-md hover:bg-white/5 cursor-pointer"
@@ -88,7 +91,7 @@ const FrameworkPanel: React.FC<FrameworkPanelProps> = ({ agentFrameworkConfig, o
               </ul>
             )}
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );
