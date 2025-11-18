@@ -9,42 +9,43 @@ interface TaskInitiatorProps {
   isVotingEnabled: boolean;
   voterCount: number;
   setVoterCount: (count: number) => void;
+  selectedTask: TaskDetails | null;
+  onTaskChange: (taskDetails: TaskDetails) => void;
 }
 
-const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, agentConfig, isVotingEnabled, voterCount, setVoterCount }) => {
-  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
-  const [selectedTaskId, setSelectedTaskId] = useState<string>('');
+const TaskInitiator: React.FC<TaskInitiatorProps> = ({ 
+    onSubmit, 
+    isProcessing, 
+    agentConfig, 
+    isVotingEnabled, 
+    voterCount, 
+    setVoterCount,
+    selectedTask,
+    onTaskChange
+}) => {
+  const selectedAgentId = selectedTask?.agentId || '';
+  const selectedTaskId = selectedTask?.task.id || '';
 
-  useEffect(() => {
-    if (agentConfig && Object.keys(agentConfig.modules).length > 0) {
-      const firstAgentId = Object.keys(agentConfig.modules)[0];
-      setSelectedAgentId(firstAgentId);
-      if (agentConfig.modules[firstAgentId].tasks.length > 0) {
-        setSelectedTaskId(agentConfig.modules[firstAgentId].tasks[0].id);
-      }
+  const handleAgentChange = (agentId: string) => {
+    if (!agentConfig) return;
+    const firstTask = agentConfig.modules[agentId].tasks[0];
+    if (firstTask) {
+        onTaskChange({ agentId, task: firstTask });
     }
-  }, [agentConfig]);
+  };
 
-  useEffect(() => {
-    // When agent changes, reset task selection to the first available task
-    if (agentConfig && selectedAgentId && agentConfig.modules[selectedAgentId].tasks.length > 0) {
-        const currentTasks = agentConfig.modules[selectedAgentId].tasks;
-        if (!currentTasks.find(t => t.id === selectedTaskId)) {
-             setSelectedTaskId(currentTasks[0].id);
-        }
+  const handleTaskChange = (taskId: string) => {
+    if (!agentConfig || !selectedAgentId) return;
+    const task = agentConfig.modules[selectedAgentId].tasks.find(t => t.id === taskId);
+    if (task) {
+        onTaskChange({ agentId: selectedAgentId, task });
     }
-  }, [selectedAgentId, agentConfig]);
-
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isProcessing || !selectedAgentId || !selectedTaskId || !agentConfig) return;
-
-    const task: Task | undefined = agentConfig.modules[selectedAgentId].tasks.find(t => t.id === selectedTaskId);
-    
-    if (task) {
-        onSubmit({ agentId: selectedAgentId, task });
-    }
+    if (isProcessing || !selectedTask) return;
+    onSubmit(selectedTask);
   };
   
   const baseSelectClasses = "w-full bg-[var(--color-panel)] border border-[var(--color-primary)]/30 rounded-md p-2 text-white focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none transition-all text-sm";
@@ -53,7 +54,7 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, a
   const availableTasks = selectedAgentId && agentConfig ? agentConfig.modules[selectedAgentId].tasks : [];
 
   return (
-    <form onSubmit={handleSubmit} className="panel-glow p-4 flex flex-col gap-4 h-full">
+    <form onSubmit={handleSubmit} className="panel-glow p-4 flex flex-col gap-4">
       <h3 className="text-lg font-semibold text-[var(--color-primary)] flex-shrink-0" style={{ textShadow: `0 0 5px var(--color-primary-glow)`}}>Task Initiator</h3>
       
       {agentConfig ? (
@@ -63,7 +64,7 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, a
                 <select
                     id="agent-module"
                     value={selectedAgentId}
-                    onChange={(e) => setSelectedAgentId(e.target.value)}
+                    onChange={(e) => handleAgentChange(e.target.value)}
                     className={baseSelectClasses}
                     disabled={isProcessing}
                 >
@@ -78,7 +79,7 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, a
                 <select
                     id="agent-task"
                     value={selectedTaskId}
-                    onChange={(e) => setSelectedTaskId(e.target.value)}
+                    onChange={(e) => handleTaskChange(e.target.value)}
                     className={baseSelectClasses}
                     disabled={isProcessing || availableTasks.length === 0}
                 >
@@ -92,7 +93,7 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, a
                 </select>
             </div>
 
-            <div className={`w-full transition-all duration-300 ${isVotingEnabled ? 'opacity-100 max-h-40' : 'opacity-50 max-h-0 overflow-hidden'}`}>
+            <div className={`w-full transition-all duration-300 ${isVotingEnabled ? 'opacity-100' : 'opacity-50'}`}>
                 <div className="mt-2">
                     <label htmlFor="voterCount" className="text-xs text-[var(--color-text-dim)] flex justify-between">
                         <span>MAKER Voter Count</span>

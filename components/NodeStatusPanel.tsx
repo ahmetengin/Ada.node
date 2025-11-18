@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Node, NodeType } from '../types';
 import { Server, PlusCircle, X, History, PlaneTakeoff, CreditCard, Users, Sailboat, Settings } from 'lucide-react';
@@ -84,7 +85,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
         const updateDimensions = () => {
             if (containerRef.current) {
                 const { width, height } = containerRef.current.getBoundingClientRect();
-                const radius = Math.min(width, height) / 2 - (width > 500 ? 60 : 40);
+                const radius = Math.min(width, height) / 2 - (width > 500 ? 50 : 35);
                 setDimensions({ width, height, radius });
             }
         };
@@ -108,7 +109,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
 
 
     return (
-        <div className="panel-glow p-4 flex flex-col h-full relative">
+        <div className="panel-glow p-4 flex flex-col h-full relative" style={{ minHeight: '300px' }}>
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
                 <h3 className="text-lg font-semibold text-[var(--color-primary)]" style={{ textShadow: `0 0 5px var(--color-primary-glow)` }}>Node Status</h3>
                 <div className="flex gap-2">
@@ -155,7 +156,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
                     const pos = nodePositions.current.get(node.id);
                     if (!pos) return null;
                     const isCentral = index === 0;
-                    const size = isCentral ? 80 : 64;
+                    const size = isCentral ? 70 : 56;
                     
                     let statusColor = 'border-gray-500';
                     const isActive = activeConnections.some(c => c.includes(node.id));
@@ -174,7 +175,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
                     return (
                         <div
                             key={node.id}
-                            className={`absolute flex flex-col items-center justify-center p-2 rounded-full transition-all duration-500 ${statusColor} border-2 bg-black/50 backdrop-blur-sm`}
+                            className={`absolute flex flex-col items-center justify-center p-1 rounded-full transition-all duration-500 ${statusColor} border-2 bg-black/50 backdrop-blur-sm`}
                             style={{
                                 left: pos.x, top: pos.y,
                                 width: size, height: size,
@@ -185,7 +186,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
                             title={`${node.name} (${node.status})`}
                         >
                             <NodeIcon type={node.type} isCentral={isCentral} />
-                            <span className="text-xs text-center text-[var(--color-text-dim)] truncate w-full" style={{ fontSize: '10px' }}>
+                            <span className="text-xs text-center text-[var(--color-text-dim)] truncate w-full" style={{ fontSize: '9px' }}>
                                 {node.instanceName || node.name.split(' ').pop()}
                             </span>
                         </div>

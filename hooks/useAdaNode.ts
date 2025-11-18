@@ -104,14 +104,19 @@ export const useAdaNode = () => {
         source,
         ...details
       };
-      return [newLog, ...prev];
+      // Keep the log list from getting too large for performance
+      const newLogs = [newLog, ...prev];
+      if (newLogs.length > 200) {
+        newLogs.pop();
+      }
+      return newLogs;
     });
     setLogCounter(prev => prev + 1); 
   }, []);
 
   const saveStateToLocalStorage = useCallback(() => {
     try {
-        const stateToSave = { nodes, logs, logCounter };
+        const stateToSave = { nodes, logs: logs.slice(0, 50), logCounter }; // Save only recent logs
         localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(stateToSave));
         addLog(LogType.INFO, 'State checkpoint saved.', 'System');
     } catch (error) {
@@ -240,5 +245,5 @@ export const useAdaNode = () => {
     }
   }, [addLog, simulateMeshCommunication]);
 
-  return { nodes, agentConfig, logs, route, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections };
+  return { nodes, agentConfig, logs, route, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog };
 };

@@ -89,23 +89,24 @@ const LiveConversationPanel: React.FC<LiveConversationPanelProps> = ({
 
   return (
     <div className="panel-glow p-4 flex flex-col gap-4 h-full">
-      <h4 className="text-md font-semibold text-[var(--color-primary)] flex items-center gap-2 flex-shrink-0">
-        <Video size={18} />
-        <span>Live Comms</span>
-      </h4>
+      <div className="flex justify-between items-center flex-shrink-0">
+          <h4 className="text-md font-semibold text-[var(--color-primary)] flex items-center gap-2">
+            <Video size={18} />
+            <span>Live Comms</span>
+          </h4>
+          <div className="relative w-12 h-12">
+            <div className={`absolute inset-0 rounded-full bg-black/40 border-2 border-[var(--color-primary)]/50 flex items-center justify-center transition-all duration-500 ${isVideoActive ? 'animate-pulse-green' : ''}`}
+                style={{boxShadow: isVideoActive ? `0 0 10px var(--color-primary-glow)`: 'none'}}>
+                {isVideoActive ? (
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-full transform scale-x-[-1]" />
+                ) : (
+                <User size={20} className="text-[var(--color-text-dim)]" />
+                )}
+            </div>
+          </div>
+      </div>
       
       <div className="flex-grow flex flex-col gap-4 min-h-0">
-        <div className="relative w-32 h-32 mx-auto">
-          <div className={`absolute inset-0 rounded-full bg-black/40 border-2 border-[var(--color-primary)]/50 flex items-center justify-center transition-all duration-500 ${isVideoActive ? 'animate-pulse-green' : ''}`}
-            style={{boxShadow: isVideoActive ? `0 0 20px var(--color-primary-glow)`: 'none'}}>
-            {isVideoActive ? (
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover rounded-full transform scale-x-[-1]" />
-            ) : (
-              <User size={40} className="text-[var(--color-text-dim)]" />
-            )}
-          </div>
-        </div>
-
         <div ref={scrollRef} className="bg-black/30 rounded-lg p-2 overflow-y-auto text-sm space-y-3 flex-grow">
           {transcriptions.length === 0 && (
             <div className="flex items-center justify-center h-full text-[var(--color-text-dim)] text-xs text-center">
