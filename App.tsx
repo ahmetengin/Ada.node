@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAdaNode } from './hooks/useAdaNode';
 import Header from './components/Header';
 import NodeStatusPanel from './components/NodeStatusPanel';
-import AgentTasksPanel from './components/SkillsPanel'; // Renamed for clarity
+import AgentTasksPanel from './components/AgentTasksPanel';
 import ActivityLog from './components/ActivityLog';
 import TaskInitiator from './components/TaskInitiator';
 import { useLiveConversation } from './hooks/useLiveConversation';

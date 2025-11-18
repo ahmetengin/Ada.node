@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Node, NodeType } from '../types';
 import { Server, PlusCircle, X, History, PlaneTakeoff, CreditCard, Users, Sailboat, Settings } from 'lucide-react';
@@ -60,7 +61,8 @@ const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, o
                         <button type="button" onClick={onDone} className="text-[var(--color-text-dim)] hover:text-white"><X size={20}/></button>
                     </div>
                     <select value={type} onChange={e => setType(e.target.value as NodeType)} className="w-full bg-[var(--color-panel)] border border-[var(--color-primary)]/30 rounded-md p-2 text-white text-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none">
-                       {Object.values(NodeType).filter(t => t !== NodeType.CENTRAL).map(t => (
+                       {/* FIX: Explicitly type 't' as string to resolve TypeScript inference issue with Object.values on an enum. */}
+                       {Object.values(NodeType).filter(t => t !== NodeType.CENTRAL).map((t: string) => (
                          <option key={t} value={t}>{t}</option>
                        ))}
                     </select>

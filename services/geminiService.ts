@@ -3,11 +3,18 @@ import { VotableResponse } from "../types";
 
 const API_KEY = process.env.API_KEY;
 
-if (!API_KEY) {
-  console.error("Gemini API key is not set. Please set the API_KEY environment variable.");
-}
+let ai: GoogleGenAI | null = null;
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const getAiClient = (): GoogleGenAI => {
+    if (!ai) {
+        if (!API_KEY) {
+            console.error("Gemini API key is not set. Please set the API_KEY environment variable.");
+            // Fallback or throw error, for now we let it fail in the constructor
+        }
+        ai = new GoogleGenAI({ apiKey: API_KEY! });
+    }
+    return ai;
+}
 
 const decisionSchema = {
     type: Type.OBJECT,
@@ -29,7 +36,8 @@ export const generateContent = async (prompt: string): Promise<string> => {
     return `[Gemini API key not configured] Fallback: ${prompt}`;
   }
   try {
-    const response = await ai.models.generateContent({
+    const client = getAiClient();
+    const response = await client.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -37,7 +45,6 @@ export const generateContent = async (prompt: string): Promise<string> => {
             topP: 0.9,
         }
     });
-    // FIX: Access the .text property directly instead of calling it as a function.
     return response.text;
   } catch (error) {
     console.error("Error generating content with Gemini:", error);
@@ -57,7 +64,8 @@ export const generateVotableContent = async (prompt: string): Promise<VotableRes
         return null;
     }
     try {
-        const response = await ai.models.generateContent({
+        const client = getAiClient();
+        const response = await client.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
@@ -67,9 +75,7 @@ export const generateVotableContent = async (prompt: string): Promise<VotableRes
             }
         });
 
-        // FIX: Access the .text property directly instead of calling it as a function.
         const jsonString = response.text.trim();
-        // The model should return valid JSON, so we can parse it directly.
         const parsed = JSON.parse(jsonString);
         
         if (typeof parsed.decision === 'string' && typeof parsed.reason === 'string' && typeof parsed.confidence === 'number') {

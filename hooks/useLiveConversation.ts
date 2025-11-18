@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-// FIX: The `LiveSession` type is not exported by the library.
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
-import { ConversationStatus, TranscriptionEntry } from '../types';
-import { createBlob, decode, decodeAudioData, blobToBase64 } from '../utils/audio';
+import { ConversationStatus, TranscriptionEntry } from './types';
+import { createBlob, decode, decodeAudioData, blobToBase64 } from './utils/audio';
 
 // TFJS and segmentation model are loaded via script tags, so we declare them here.
 declare const bodySegmentation: any;
@@ -14,6 +13,19 @@ export type BackgroundEffect = 'none' | 'blur' | 'vbg1' | 'vbg2' | 'custom';
 // Base64 encoded virtual backgrounds
 const VBG1_URL = 'data:image/jpeg;base64,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';
 const VBG2_URL = 'data:image/jpeg;base64,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';
+
+let ai: GoogleGenAI | null = null;
+const getAiClient = (): GoogleGenAI => {
+    if (!ai) {
+        if (!API_KEY) {
+            console.error("Gemini API key not set.");
+            // Allow constructor to handle the error more gracefully
+        }
+        ai = new GoogleGenAI({ apiKey: API_KEY! });
+    }
+    return ai;
+};
+
 
 export const useLiveConversation = () => {
     const [status, setStatus] = useState<ConversationStatus>('idle');
@@ -27,8 +39,6 @@ export const useLiveConversation = () => {
     // Renamed videoStream to processedStream to be more descriptive
     const [processedStream, setProcessedStream] = useState<MediaStream | null>(null);
 
-    const aiRef = useRef<GoogleGenAI | null>(null);
-    // FIX: The `LiveSession` type is not exported by the library, using `any`.
     const sessionPromiseRef = useRef<Promise<any> | null>(null);
     const micStreamRef = useRef<MediaStream | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -36,7 +46,6 @@ export const useLiveConversation = () => {
     const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
     const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     
-    // FIX: Add a ref to track the current status to avoid stale closures in callbacks.
     const statusRef = useRef(status);
     useEffect(() => {
         statusRef.current = status;
@@ -202,7 +211,7 @@ export const useLiveConversation = () => {
 
             startProcessingLoop();
             
-            if (!aiRef.current) aiRef.current = new GoogleGenAI({ apiKey: API_KEY });
+            const aiClient = getAiClient();
             
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
             inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
@@ -211,7 +220,7 @@ export const useLiveConversation = () => {
             let nextStartTime = 0;
             const sources = new Set<AudioBufferSourceNode>();
 
-            sessionPromiseRef.current = aiRef.current.live.connect({
+            sessionPromiseRef.current = aiClient.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                 callbacks: {
                     onopen: () => {
@@ -234,7 +243,6 @@ export const useLiveConversation = () => {
                         // Send video frames from the processed canvas
                         const frameInterval = setInterval(() => {
                            canvasRef.current.toBlob(async (blob) => {
-                                // FIX: Use statusRef to get the latest status and avoid stale closures.
                                 if (blob && (statusRef.current === 'connected' || statusRef.current === 'connecting')) {
                                     const base64Data = await blobToBase64(blob);
                                     sessionPromiseRef.current?.then((session) => {
@@ -264,7 +272,6 @@ export const useLiveConversation = () => {
                             currentOutputTranscriptionRef.current = '';
                         }
                         
-                        // FIX: Safely find the audio data part to prevent crashes.
                         const audioPart = message.serverContent?.modelTurn?.parts?.find(p => p.inlineData);
                         const base64Audio = audioPart?.inlineData?.data;
 
@@ -287,7 +294,6 @@ export const useLiveConversation = () => {
                         stopConversation();
                     },
                     onclose: () => {
-                        // FIX: Use statusRef to check the latest status and avoid resetting from 'error' to 'idle'.
                         if (statusRef.current !== 'error') setStatus('idle');
                     },
                 },
