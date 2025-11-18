@@ -37,6 +37,33 @@ const getLogStyle = (type: LogType) => {
   }
 };
 
+const VoteDistributionChart: React.FC<{ distribution: Record<string, number> }> = ({ distribution }) => {
+    const totalVotes = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+    if (totalVotes === 0) return null;
+
+    const getBarColor = (decision: string) => {
+        if (decision.includes('confirm')) return 'bg-green-500';
+        if (decision.includes('reject')) return 'bg-red-500';
+        return 'bg-gray-500';
+    }
+
+    return (
+        <div className="mt-2 space-y-1.5 pr-2">
+            {Object.entries(distribution).map(([decision, count]) => (
+                <div key={decision} className="flex items-center gap-2 text-xs">
+                    <span className="w-20 capitalize text-gray-400 truncate">{decision} ({count})</span>
+                    <div className="flex-grow bg-black/40 rounded-full h-3">
+                        <div 
+                            className={`h-3 rounded-full ${getBarColor(decision)}`}
+                            style={{ width: `${(count / totalVotes) * 100}%`}}
+                        ></div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 
 const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
   return (
@@ -60,6 +87,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
                       <p className="text-xs text-gray-500 font-mono">{log.timestamp}</p>
                   </div>
                   <p className="text-[var(--color-text)]">{log.message}</p>
+                  {log.voteDistribution && <VoteDistributionChart distribution={log.voteDistribution} />}
                 </div>
               </li>
             )})}

@@ -1,23 +1,12 @@
 export enum NodeType {
   CENTRAL = 'ada.central',
-  SEA = 'ada.sea',
-  MARINA = 'ada.marina',
-  WEATHER = 'ada.weather',
-  FINANCE = 'ada.finance',
-  TRAVEL = 'ada.travel',
-  DB = 'ada.db',
-  API = 'ada.api',
-  CRON = 'ada.cron',
-  // New, more granular agent types based on user's repositories
-  CONGRESS = 'ada.congress',
-  CUSTOMER = 'ada.customer',
-  HUKUK = 'ada.hukuk',
-  INTERPRETER = 'ada.interpreter',
-  LEGAL = 'ada.legal',
-  MAINTENANCE = 'ada.maintenance',
-  PASSKIT = 'ada.passkit',
-  RESTAURANT = 'ada.restaurant',
-  CHATBOT = 'ada.chatbot',
+  // New agent module types from config
+  TRAVEL_AGENT = 'travel_agent',
+  PAYMENT_AGENT = 'payment_agent',
+  CRM_AGENT = 'crm_agent',
+  YACHT_TACTICAL_AGENT = 'yacht_tactical_agent',
+  // Keep generic types for manual adding if needed
+  GENERIC = 'ada.generic',
 }
 
 export interface Node {
@@ -25,15 +14,39 @@ export interface Node {
   name: string;
   type: NodeType;
   status: 'online' | 'offline' | 'processing';
-  instanceName?: string; // e.g., 'wim', 'midilli'
+  instanceName?: string; 
 }
 
-export interface Skill {
-  name: string;
+// New data-driven structures
+export interface Task {
+  id: string;
   description: string;
-  level: number; // 1-10
-  execute: (input: any) => Promise<any>;
 }
+
+export interface AgentModule {
+  tasks: Task[];
+  num_samples: number;
+  voting_strategy: string;
+  red_flagging: boolean;
+}
+
+export interface AgentConfig {
+  modules: Record<string, AgentModule>;
+  general: {
+    auto_seal: boolean;
+    run_interval_hours: number;
+    log_dir: string;
+    temp_dir: string;
+    adapter_update: boolean;
+  };
+}
+
+// Simplified TaskDetails for execution
+export interface TaskDetails {
+  agentId: string;
+  task: Task;
+}
+
 
 export enum LogType {
   INFO = 'INFO',
@@ -56,6 +69,7 @@ export interface LogEntry {
   type: LogType;
   message: string;
   source?: string;
+  voteDistribution?: Record<string, number>;
 }
 
 export type ConversationStatus = 'idle' | 'connecting' | 'connected' | 'error';
@@ -70,37 +84,6 @@ export interface GeoPoint {
   lat: number;
   lng: number;
 }
-
-export type TaskDetails =
-  | { skillName: 'routePlanning'; from: string; to: string }
-  | { skillName: 'bookingConfirmation'; location: string; vessel: string; targetNodeId: string; }
-  | { skillName: 'bookingAssistance'; service: string; location: string; targetNodeId: string; }
-  | { skillName: 'vesselStatusCheck'; targetNodeId: string; }
-  | { skillName: 'transactionQuery'; details: string; targetNodeId: string; }
-  | { 
-      skillName: 'fullItinerary'; 
-      from: string; 
-      to: string; 
-      targetMarinaNodeId: string; 
-      targetFinanceNodeId: string;
-      targetTravelNodeId: string;
-    }
-  | {
-      skillName: 'weeklyReport';
-      targetDbNodeId: string;
-      targetApiNodeId: string;
-    }
-  | {
-      skillName: 'congressOrganization';
-      eventName: string;
-      targetCongressNodeId: string;
-      targetPasskitNodeId: string;
-      targetFinanceNodeId: string;
-      targetInterpreterNodeId: string;
-      targetRestaurantNodeId: string;
-      targetHukukNodeId: string;
-    };
-
 
 export interface RouteData {
   from: { name: string; coords: GeoPoint };

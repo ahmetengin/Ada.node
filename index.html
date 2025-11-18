@@ -83,25 +83,39 @@
 
       /* Animations */
       @keyframes pulse-glow-green {
-        0%, 100% { box-shadow: 0 0 10px rgba(74, 222, 128, 0.5); }
-        50% { box-shadow: 0 0 20px rgba(74, 222, 128, 1); }
+        0%, 100% { border-color: rgba(74, 222, 128, 0.7); box-shadow: 0 0 15px rgba(74, 222, 128, 0.8); }
+        50% { border-color: rgba(74, 222, 128, 1); box-shadow: 0 0 25px rgba(74, 222, 128, 1); }
       }
       @keyframes pulse-glow-yellow {
-        0%, 100% { box-shadow: 0 0 10px rgba(250, 204, 21, 0.5); }
-        50% { box-shadow: 0 0 20px rgba(250, 204, 21, 1); }
+        0%, 100% { border-color: rgba(250, 204, 21, 0.7); box-shadow: 0 0 15px rgba(250, 204, 21, 0.5); }
+        50% { border-color: rgba(250, 204, 21, 1); box-shadow: 0 0 25px rgba(250, 204, 21, 1); }
       }
        @keyframes pulse-glow-red {
-        0%, 100% { box-shadow: 0 0 10px rgba(248, 113, 113, 0.5); }
-        50% { box-shadow: 0 0 20px rgba(248, 113, 113, 1); }
+        0%, 100% { border-color: rgba(248, 113, 113, 0.7); box-shadow: 0 0 15px rgba(248, 113, 113, 0.8); }
+        50% { border-color: rgba(248, 113, 113, 1); box-shadow: 0 0 25px rgba(248, 113, 113, 1); }
       }
-      .animate-pulse-green { animation: pulse-glow-green 2s infinite ease-in-out; }
-      .animate-pulse-yellow { animation: pulse-glow-yellow 1s infinite ease-in-out; }
-      .animate-pulse-red { animation: pulse-glow-red 2s infinite ease-in-out; }
+      .animate-pulse-green { animation: pulse-glow-green 1.5s infinite ease-in-out; }
+      .animate-pulse-yellow { animation: pulse-glow-yellow 1.5s infinite ease-in-out; }
+      .animate-pulse-red { animation: pulse-glow-red 1.5s infinite ease-in-out; }
 
       @keyframes line-flow {
         to {
             stroke-dashoffset: -1000;
         }
+      }
+
+      .data-flow-line {
+        stroke-width: 2;
+        stroke-dasharray: 4, 8;
+        animation: line-flow 60s linear infinite;
+      }
+      .line-pulse-green {
+        stroke: #4ade80; /* green-400 */
+        filter: drop-shadow(0 0 4px #4ade80);
+      }
+      .line-pulse-red {
+        stroke: #f87171; /* red-400 */
+        filter: drop-shadow(0 0 4px #f87171);
       }
 
       .data-packet {

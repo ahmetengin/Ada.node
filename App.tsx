@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAdaNode } from './hooks/useAdaNode';
 import Header from './components/Header';
 import NodeStatusPanel from './components/NodeStatusPanel';
-import SkillsPanel from './components/SkillsPanel';
+import AgentTasksPanel from './components/SkillsPanel'; // Renamed for clarity
 import ActivityLog from './components/ActivityLog';
 import TaskInitiator from './components/TaskInitiator';
 import { useLiveConversation } from './hooks/useLiveConversation';
@@ -13,7 +13,7 @@ import { TaskDetails } from './types';
 const App: React.FC = () => {
   const [isVotingEnabled, setIsVotingEnabled] = useState(false);
   const [voterCount, setVoterCount] = useState(3);
-  const { nodes, skills, logs, route, isProcessing, executeTask, activeSkill, activeConnections, addNode, loadStateFromLocalStorage } = useAdaNode();
+  const { nodes, agentConfig, logs, route, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections } = useAdaNode();
   const conversation = useLiveConversation();
 
   const handleExecuteTask = (task: TaskDetails) => {
@@ -38,14 +38,15 @@ const App: React.FC = () => {
           }}>
         
         <div style={{ gridArea: 'skills' }} className="flex flex-col gap-6 min-h-0">
-            <SkillsPanel skills={skills} activeSkill={activeSkill} />
+            <AgentTasksPanel agentConfig={agentConfig} />
         </div>
         
         <div style={{ gridArea: 'nodes' }} className="flex flex-col min-h-0">
             <NodeStatusPanel 
               nodes={nodes} 
               isProcessing={isProcessing} 
-              activeConnections={activeConnections} 
+              activeConnections={activeConnections}
+              errorConnections={errorConnections}
               addNode={addNode} 
               restoreFromCheckpoint={loadStateFromLocalStorage}
             />
@@ -55,7 +56,7 @@ const App: React.FC = () => {
             <TaskInitiator 
               onSubmit={handleExecuteTask} 
               isProcessing={isProcessing || conversation.status !== 'idle'}
-              nodes={nodes}
+              agentConfig={agentConfig}
               isVotingEnabled={isVotingEnabled}
               voterCount={voterCount}
               setVoterCount={setVoterCount}

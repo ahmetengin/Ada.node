@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Node, NodeType } from '../types';
-import { Server, Waves, Anchor, CloudSun, PlusCircle, X, Landmark, Globe, Database, Webhook, Clock, Presentation, Users, Gavel, Languages, Scale, Wrench, Ticket, Utensils, MessageSquare, History } from 'lucide-react';
+import { Server, PlusCircle, X, History, PlaneTakeoff, CreditCard, Users, Sailboat, Settings } from 'lucide-react';
 
 interface NodeStatusPanelProps {
   nodes: Node[];
   isProcessing: boolean;
   activeConnections: [string, string][];
+  errorConnections: [string, string][];
   addNode: (type: NodeType, instanceName: string) => void;
   restoreFromCheckpoint: () => void;
 }
@@ -18,24 +19,11 @@ const NodeIcon: React.FC<{ type: NodeType; isCentral: boolean }> = ({ type, isCe
   
   switch (type) {
     case NodeType.CENTRAL: return <Server {...iconProps} />;
-    case NodeType.SEA: return <Waves {...iconProps} />;
-    case NodeType.MARINA: return <Anchor {...iconProps} />;
-    case NodeType.WEATHER: return <CloudSun {...iconProps} />;
-    case NodeType.FINANCE: return <Landmark {...iconProps} />;
-    case NodeType.TRAVEL: return <Globe {...iconProps} />;
-    case NodeType.DB: return <Database {...iconProps} />;
-    case NodeType.API: return <Webhook {...iconProps} />;
-    case NodeType.CRON: return <Clock {...iconProps} />;
-    case NodeType.CONGRESS: return <Presentation {...iconProps} />;
-    case NodeType.CUSTOMER: return <Users {...iconProps} />;
-    case NodeType.HUKUK: return <Gavel {...iconProps} />;
-    case NodeType.INTERPRETER: return <Languages {...iconProps} />;
-    case NodeType.LEGAL: return <Scale {...iconProps} />;
-    case NodeType.MAINTENANCE: return <Wrench {...iconProps} />;
-    case NodeType.PASSKIT: return <Ticket {...iconProps} />;
-    case NodeType.RESTAURANT: return <Utensils {...iconProps} />;
-    case NodeType.CHATBOT: return <MessageSquare {...iconProps} />;
-    default: return null;
+    case NodeType.TRAVEL_AGENT: return <PlaneTakeoff {...iconProps} />;
+    case NodeType.PAYMENT_AGENT: return <CreditCard {...iconProps} />;
+    case NodeType.CRM_AGENT: return <Users {...iconProps} />;
+    case NodeType.YACHT_TACTICAL_AGENT: return <Sailboat {...iconProps} />;
+    default: return <Settings {...iconProps} />;
   }
 };
 
@@ -50,7 +38,7 @@ const getNodePosition = (index: number, total: number, center: { x: number; y: n
 
 const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, onDone: () => void, isVisible: boolean }> = ({ addNode, onDone, isVisible }) => {
     const [name, setName] = useState('');
-    const [type, setType] = useState<NodeType>(NodeType.CONGRESS);
+    const [type, setType] = useState<NodeType>(NodeType.GENERIC);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -72,30 +60,9 @@ const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, o
                         <button type="button" onClick={onDone} className="text-[var(--color-text-dim)] hover:text-white"><X size={20}/></button>
                     </div>
                     <select value={type} onChange={e => setType(e.target.value as NodeType)} className="w-full bg-[var(--color-panel)] border border-[var(--color-primary)]/30 rounded-md p-2 text-white text-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none">
-                        <optgroup label="Specialist Agents">
-                            {/* FIX: Removed '<' and '>' from 'tenant' to prevent JSX parsing errors. */}
-                            <option value={NodeType.CONGRESS}>Congress (ada.congress.tenant)</option>
-                            <option value={NodeType.CUSTOMER}>Customer (ada.customer.tenant)</option>
-                            <option value={NodeType.HUKUK}>Hukuk (ada.hukuk.tenant)</option>
-                            <option value={NodeType.INTERPRETER}>Interpreter (ada.interpreter.tenant)</option>
-                            <option value={NodeType.LEGAL}>Legal (ada.legal.tenant)</option>
-                            <option value={NodeType.MAINTENANCE}>Maintenance (ada.maintenance.tenant)</option>
-                            <option value={NodeType.PASSKIT}>Passkit (ada.passkit.tenant)</option>
-                            <option value={NodeType.RESTAURANT}>Restaurant (ada.restaurant.tenant)</option>
-                            <option value={NodeType.CHATBOT}>Chatbot (ada.chatbot.tenant)</option>
-                        </optgroup>
-                        <optgroup label="Domain Agents">
-                            <option value={NodeType.SEA}>Sea (ada.sea)</option>
-                            <option value={NodeType.MARINA}>Marina (ada.marina)</option>
-                            <option value={NodeType.WEATHER}>Weather (ada.weather)</option>
-                            <option value={NodeType.FINANCE}>Finance (ada.finance)</option>
-                            <option value={NodeType.TRAVEL}>Travel (ada.travel)</option>
-                        </optgroup>
-                        <optgroup label="Infrastructure Agents">
-                            <option value={NodeType.DB}>Database (ada.db)</option>
-                            <option value={NodeType.API}>API (ada.api)</option>
-                            <option value={NodeType.CRON}>Cron (ada.cron)</option>
-                        </optgroup>
+                       {Object.values(NodeType).filter(t => t !== NodeType.CENTRAL).map(t => (
+                         <option key={t} value={t}>{t}</option>
+                       ))}
                     </select>
                     <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Instance Name (e.g., 'wim', 'midilli')" className="w-full bg-[var(--color-panel)] border border-[var(--color-primary)]/30 rounded-md p-2 text-white text-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none" />
                     <button type="submit" disabled={!name.trim()} className="w-full px-6 py-2 border border-[var(--color-primary)] bg-[var(--color-primary)]/20 text-[var(--color-primary)] font-semibold rounded-md flex items-center justify-center gap-2 hover:bg-[var(--color-primary)]/40 disabled:bg-gray-500/20 disabled:border-gray-600 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors">Add Node</button>
@@ -105,7 +72,7 @@ const AddNodeForm: React.FC<{ addNode: (type: NodeType, name: string) => void, o
     );
 };
 
-const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, activeConnections, addNode, restoreFromCheckpoint }) => {
+const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, activeConnections, errorConnections, addNode, restoreFromCheckpoint }) => {
     const [isAddingNode, setIsAddingNode] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0, radius: 0 });
@@ -133,6 +100,9 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
         });
         nodePositions.current = positions;
     }, [nodes, dimensions]);
+    
+    const isConnectionActive = (from: string, to: string) => activeConnections.some(c => (c[0] === from && c[1] === to) || (c[0] === to && c[1] === from));
+    const isConnectionError = (from: string, to: string) => errorConnections.some(c => (c[0] === from && c[1] === to) || (c[0] === to && c[1] === from));
 
 
     return (
@@ -150,23 +120,33 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
             </div>
             <div ref={containerRef} className="flex-grow relative bg-black/30 rounded-lg overflow-hidden">
                 <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
-                    {activeConnections.map(([fromId, toId], index) => {
-                        const fromPos = nodePositions.current.get(fromId);
-                        const toPos = nodePositions.current.get(toId);
-                        if (!fromPos || !toPos) return null;
-                        return (
-                            <line
-                                key={`${fromId}-${toId}-${index}`}
-                                x1={fromPos.x} y1={fromPos.y}
-                                x2={toPos.x} y2={toPos.y}
-                                stroke="var(--color-primary)"
-                                strokeWidth="2"
-                                strokeOpacity="0.7"
-                            >
-                                <animate attributeName="stroke-dasharray" from="0, 20" to="20, 0" dur="1s" repeatCount="indefinite" />
-                            </line>
-                        );
-                    })}
+                    {nodes.map(fromNode => 
+                        nodes.map(toNode => {
+                            if (fromNode.id >= toNode.id) return null; // Avoid duplicates and self-loops
+                            
+                            const isError = isConnectionError(fromNode.id, toNode.id);
+                            const isActive = isConnectionActive(fromNode.id, toNode.id);
+
+                            if (!isError && !isActive) return null;
+
+                            const fromPos = nodePositions.current.get(fromNode.id);
+                            const toPos = nodePositions.current.get(toNode.id);
+                            if (!fromPos || !toPos) return null;
+
+                            let lineClass = 'data-flow-line';
+                            if (isError) lineClass += ' line-pulse-red';
+                            else if(isActive) lineClass += ' line-pulse-green';
+
+                            return (
+                                <line
+                                    key={`${fromNode.id}-${toNode.id}`}
+                                    x1={fromPos.x} y1={fromPos.y}
+                                    x2={toPos.x} y2={toPos.y}
+                                    className={lineClass}
+                                />
+                            );
+                        })
+                    )}
                 </svg>
 
                 {nodes.map((node, index) => {
@@ -176,11 +156,18 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
                     const size = isCentral ? 80 : 64;
                     
                     let statusColor = 'border-gray-500';
-                    if (node.status === 'online') statusColor = 'border-[var(--color-primary)]';
-                    if (node.status === 'processing') statusColor = 'border-yellow-400 animate-pulse';
-                    
-                    const isConnected = activeConnections.some(c => c.includes(node.id));
-                    if (isConnected && node.status !== 'processing') statusColor = 'border-green-400';
+                    const isActive = activeConnections.some(c => c.includes(node.id));
+                    const isError = errorConnections.some(c => c.includes(node.id));
+
+                    if (isError) {
+                        statusColor = 'border-red-500 animate-pulse-red';
+                    } else if (node.status === 'processing') {
+                        statusColor = 'border-yellow-400 animate-pulse-yellow';
+                    } else if (isActive) {
+                        statusColor = 'border-green-400 animate-pulse-green';
+                    } else if (node.status === 'online') {
+                         statusColor = 'border-[var(--color-primary)]';
+                    }
 
                     return (
                         <div
@@ -191,7 +178,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
                                 width: size, height: size,
                                 transform: `translate(-50%, -50%)`,
                                 zIndex: 2,
-                                boxShadow: isConnected ? '0 0 15px var(--color-primary-glow)' : 'none'
+                                boxShadow: isActive || isError ? '0 0 15px currentColor' : 'none'
                             }}
                             title={`${node.name} (${node.status})`}
                         >
