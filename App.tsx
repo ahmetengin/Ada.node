@@ -6,121 +6,102 @@ import NodeStatusPanel from './components/NodeStatusPanel';
 import ActivityLog from './components/ActivityLog';
 import TaskInitiator from './components/TaskInitiator';
 import { useLiveConversation } from './hooks/useLiveConversation';
-import MapPanel from './components/MapPanel';
-import LiveConversationPanel from './components/LiveConversationPanel';
-// FIX: Import LogType to use enum values instead of strings.
-import { TaskDetails, Task, LogType } from './types';
-import FileTreePanel from './components/FileTreePanel';
+import { TaskDetails, LogType, AgentFrameworkConfig } from './types';
+import SkillsPanel from './components/SkillsPanel';
 import EditorPanel from './components/EditorPanel';
 import TerminalPanel from './components/TerminalPanel';
+import LiveConversationPanel from './components/LiveConversationPanel';
 
 const App: React.FC = () => {
-  const [isVotingEnabled, setIsVotingEnabled] = useState(false);
+  const [isVotingEnabled, setIsVotingEnabled] = useState(true);
   const [voterCount, setVoterCount] = useState(3);
-  const { nodes, agentConfig, logs, route, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog } = useAdaNode();
+  const { nodes, agentFrameworkConfig, logs, isProcessing, executeTask, executeTaskBatch, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog } = useAdaNode();
   const conversation = useLiveConversation();
 
   const [selectedTask, setSelectedTask] = useState<TaskDetails | null>(null);
   const [editorContent, setEditorContent] = useState<string>('');
   
-  const generateEditorContent = useCallback((taskDetails: TaskDetails | null) => {
-    if (!taskDetails || !agentConfig) {
-      return `// Select a task from the file tree to see its execution script.
+  const generateEditorContent = useCallback((taskDetails: TaskDetails | null, config: AgentFrameworkConfig | null) => {
+    if (!taskDetails || !config) {
+      return `// Select a skill or tool from the panel to see its execution script.
 // Use the terminal below to run commands.
-// Example: run travel_agent flight_combinations`;
+// Example: run travel_agent flight_booking`;
     }
-    const { agentId, task } = taskDetails;
-    const module = agentConfig.modules[agentId];
-    
+    const { agentId, skillId, providerId, toolId } = taskDetails;
+    const agent = config.modules[agentId];
+    const skill = agent?.skills.find(s => s.id === skillId);
+    const provider = providerId ? config.providers[providerId] : null;
+    const tool = toolId ? config.tools[toolId] : null;
+
     return `/**
- * Agent: ${agentId}
- * Task: ${task.description}
- * Voting Strategy: ${module.voting_strategy}
- * Red Flagging: ${module.red_flagging ? 'Enabled' : 'Disabled'}
+ * AGENT:    ${agentId}
+ * SKILL:    ${skill?.description || 'N/A'}
+ * PROVIDER: ${provider?.description || 'All'}
+ * TOOL:     ${tool?.description || 'All'}
+ * MAKER:    ${isVotingEnabled ? `ON (Voters: ${voterCount})` : 'OFF'}
  */
 
-// Initialize Ada Node client
-const ada = new AdaNodeClient();
+// MCP initializes the operation
+const mcp = new MasterControlProgram();
 
-// Define the task payload
-const taskPayload = {
+// Define the target for the operation
+const operationTarget = {
   agent: '${agentId}',
-  taskId: '${task.id}',
-  description: '${task.description}',
-  parameters: {
-    // Parameters would be dynamically generated here
-  }
+  skill: '${skillId || ''}',
+  ${providerId ? `provider: '${providerId}',` : ''}
+  ${toolId ? `tool: '${toolId}',` : ''}
 };
 
-// Execute with MAKER Mode settings
-const executionOptions = {
-  isVotingEnabled: ${isVotingEnabled},
-  voterCount: ${voterCount}
-};
+// The MCP selects the appropriate tools based on the target
+const selectedTools = mcp.selectTools(operationTarget);
 
-// Initiate the task
-ada.run(taskPayload, executionOptions)
-  .then(result => {
-    console.log('Task Completed Successfully:', result);
+// The MCP orchestrates the execution of the selected tools
+mcp.execute(selectedTools, { isVotingEnabled: ${isVotingEnabled} })
+  .then(consensusResult => {
+    console.log('Consensus Reached:', consensusResult);
   })
   .catch(error => {
-    console.error('Task Failed:', error);
-    ada.backtrack(error);
+    console.error('Operation Failed:', error);
+    mcp.backtrack(error);
   });
 `;
-  }, [agentConfig, isVotingEnabled, voterCount]);
+  }, [isVotingEnabled, voterCount]);
 
   useEffect(() => {
-    // Set initial task and editor content
-    if (agentConfig && !selectedTask) {
-        const firstAgentId = Object.keys(agentConfig.modules)[0];
-        const firstTask = agentConfig.modules[firstAgentId]?.tasks[0];
-        if (firstAgentId && firstTask) {
-            const initialTask = { agentId: firstAgentId, task: firstTask };
+    if (agentFrameworkConfig && !selectedTask) {
+        const firstAgentId = Object.keys(agentFrameworkConfig.modules)[0];
+        const firstSkill = agentFrameworkConfig.modules[firstAgentId]?.skills[0];
+        if (firstAgentId && firstSkill) {
+            const initialTask: TaskDetails = { agentId: firstAgentId, skillId: firstSkill.id };
             setSelectedTask(initialTask);
-            setEditorContent(generateEditorContent(initialTask));
         }
     }
-  }, [agentConfig, selectedTask, generateEditorContent]);
+  }, [agentFrameworkConfig, selectedTask]);
 
   useEffect(() => {
-      // Update editor content when voting settings change
-      setEditorContent(generateEditorContent(selectedTask));
-  }, [isVotingEnabled, voterCount, selectedTask, generateEditorContent]);
+      setEditorContent(generateEditorContent(selectedTask, agentFrameworkConfig));
+  }, [isVotingEnabled, voterCount, selectedTask, agentFrameworkConfig, generateEditorContent]);
 
 
   const handleTaskSelect = (taskDetails: TaskDetails) => {
     setSelectedTask(taskDetails);
-    setEditorContent(generateEditorContent(taskDetails));
   };
   
   const handleCommandSubmit = (command: string) => {
-    // FIX: Use LogType.INFO enum instead of string 'INFO'.
     addLog(LogType.INFO, `> ${command}`, 'Terminal');
-    const [action, agentId, taskId] = command.trim().split(/\s+/);
+    const parts = command.trim().split(/\s+/);
+    const [action, agentId, skillId, providerId, toolId] = parts;
 
-    if (action === 'run' && agentId && taskId) {
-        if (agentConfig && agentConfig.modules[agentId]) {
-            const task = agentConfig.modules[agentId].tasks.find(t => t.id === taskId);
-            if (task) {
-                const taskDetails: TaskDetails = { agentId, task };
-                setSelectedTask(taskDetails);
-                setEditorContent(generateEditorContent(taskDetails));
-                executeTask(taskDetails, isVotingEnabled, voterCount);
-            } else {
-                // FIX: Use LogType.ERROR enum instead of string 'ERROR'.
-                addLog(LogType.ERROR, `Task '${taskId}' not found for agent '${agentId}'.`, 'System');
-            }
-        } else {
-            // FIX: Use LogType.ERROR enum instead of string 'ERROR'.
-            addLog(LogType.ERROR, `Agent '${agentId}' not found.`, 'System');
-        }
+    if (action === 'run' && agentId && skillId) {
+       const taskDetails: TaskDetails = { agentId, skillId, providerId, toolId };
+       setSelectedTask(taskDetails);
+       executeTask(taskDetails, isVotingEnabled, voterCount);
+    } else if (action === 'run_batch') {
+        executeTaskBatch([], isVotingEnabled, voterCount);
     } else if (command.trim() === 'help') {
-        // FIX: Use LogType.INFO enum instead of string 'INFO'.
-        addLog(LogType.INFO, 'Available commands: run <agent_id> <task_id>, help, clear', 'System');
+        addLog(LogType.INFO, 'Available command:\n  run <agent_id> <skill_id> [provider_id] [tool_id]', 'System');
     }
     else {
-        // FIX: Use LogType.ERROR enum instead of string 'ERROR'.
         addLog(LogType.ERROR, `Unknown command: '${command}'. Type 'help' for available commands.`, 'System');
     }
   };
@@ -139,16 +120,16 @@ ada.run(taskPayload, executionOptions)
       <main className="flex-grow p-4 md:p-6 grid gap-4" 
           style={{ 
               gridTemplateAreas: `
-                  "tree nodes conversation"
-                  "tree editor conversation"
+                  "skills nodes conversation"
+                  "skills editor conversation"
                   "terminal terminal terminal"`,
               gridTemplateColumns: '2fr 6fr 4fr',
               gridTemplateRows: 'auto 1fr auto',
-              height: 'calc(100vh - 80px)' // Adjust based on header/footer height
+              height: 'calc(100vh - 80px)'
           }}>
         
-        <div style={{ gridArea: 'tree' }} className="flex flex-col min-h-0">
-            <FileTreePanel agentConfig={agentConfig} onTaskSelect={handleTaskSelect} selectedTask={selectedTask} />
+        <div style={{ gridArea: 'skills' }} className="flex flex-col min-h-0">
+            <SkillsPanel agentFrameworkConfig={agentFrameworkConfig} onTaskSelect={handleTaskSelect} selectedTask={selectedTask} />
         </div>
         
         <div style={{ gridArea: 'nodes' }} className="flex flex-col min-h-0">
@@ -170,7 +151,7 @@ ada.run(taskPayload, executionOptions)
             <TaskInitiator 
               onSubmit={handleExecuteTask} 
               isProcessing={isProcessing || conversation.status !== 'idle'}
-              agentConfig={agentConfig}
+              agentFrameworkConfig={agentFrameworkConfig}
               isVotingEnabled={isVotingEnabled}
               voterCount={voterCount}
               setVoterCount={setVoterCount}
@@ -192,7 +173,7 @@ ada.run(taskPayload, executionOptions)
         </div>
         
         <div style={{ gridArea: 'terminal' }} className="flex flex-col min-h-0">
-            <TerminalPanel logs={logs} onCommandSubmit={handleCommandSubmit} />
+            <TerminalPanel logs={logs} onCommandSubmit={handleCommandSubmit} agentFrameworkConfig={agentFrameworkConfig} />
         </div>
       </main>
     </div>

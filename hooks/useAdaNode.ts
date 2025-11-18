@@ -1,52 +1,35 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Node, NodeType, LogEntry, LogType, TaskDetails, AgentConfig } from '../types';
-import { generateContent } from '../services/geminiService';
+import { Node, NodeType, LogEntry, LogType, TaskDetails, AgentFrameworkConfig, ToolOutput } from '../types';
+import { generateContent, generateVotableContent } from '../services/geminiService';
 import { performMajorityVote } from '../services/votingService';
+import { FastRTCService } from '../services/fastRTCService';
 
-const AGENT_CONFIG: AgentConfig = {
+const AGENT_FRAMEWORK_CONFIG: AgentFrameworkConfig = {
+  "tools": {
+    "amadeus_flight_search": { "id": "amadeus_flight_search", "description": "Amadeus GDS üzerinden uçuş arar." },
+    "sabre_flight_search": { "id": "sabre_flight_search", "description": "Sabre GDS üzerinden uçuş arar." },
+    "kites_aggregator": { "id": "kites_aggregator", "description": "KAYAK gibi toplayıcılardan en ucuz uçuşları bulur." },
+    "bookingcom_hotel_search": { "id": "bookingcom_hotel_search", "description": "Booking.com üzerinden otel arar." },
+    "expedia_hotel_search": { "id": "expedia_hotel_search", "description": "Expedia üzerinden otel arar." }
+  },
+  "providers": {
+    "amadeus": { "id": "amadeus", "description": "Amadeus Global Distribution System", "supportedToolIds": ["amadeus_flight_search"] },
+    "sabre": { "id": "sabre", "description": "Sabre Global Distribution System", "supportedToolIds": ["sabre_flight_search"] },
+    "sky_scanner": { "id": "sky_scanner", "description": "SkyScanner Flight Aggregator", "supportedToolIds": ["kites_aggregator"] },
+    "booking_com": { "id": "booking_com", "description": "Booking.com Hotel Provider", "supportedToolIds": ["bookingcom_hotel_search"] },
+    "expedia": { "id": "expedia", "description": "Expedia Hotel Provider", "supportedToolIds": ["expedia_hotel_search"] }
+  },
   "modules": {
     "travel_agent": {
-      "tasks": [
-        {"id": "date_destination_check", "description": "Tarih ve destinasyon doğrulama"},
-        {"id": "flight_combinations", "description": "Uçuş kombinasyonlarını oluşturma"},
-        {"id": "price_optimization", "description": "Toplam fiyat optimizasyonu"},
-        {"id": "hotel_transfer_match", "description": "Otel ve transfer eşleştirme"},
-        {"id": "reservation_generation", "description": "Rezervasyon üretimi"}
+      "skills": [
+        { "id": "flight_booking", "description": "Uçuş Rezervasyonu", "providerIds": ["amadeus", "sabre", "sky_scanner"] },
+        { "id": "hotel_booking", "description": "Otel Rezervasyonu", "providerIds": ["booking_com", "expedia"] }
       ],
-      "num_samples": 12,
       "voting_strategy": "plurality",
       "red_flagging": true
     },
     "payment_agent": {
-      "tasks": [
-        {"id": "payment_method_check", "description": "Ödeme yöntemi doğrulama"},
-        {"id": "commission_calc", "description": "Komisyon hesaplama"},
-        {"id": "api_call", "description": "API çağrısı ve onay"},
-        {"id": "invoice_generation", "description": "Fatura oluşturma"}
-      ],
-      "num_samples": 12,
-      "voting_strategy": "confidence_fused",
-      "red_flagging": true
-    },
-    "crm_agent": {
-      "tasks": [
-        {"id": "customer_data_check", "description": "Müşteri verilerini kontrol etme"},
-        {"id": "loyalty_points_calc", "description": "Loyalty puan hesaplama"},
-        {"id": "campaign_suggestion", "description": "Kampanya önerisi üretme"},
-        {"id": "email_qr_generation", "description": "E-posta ve QR üretimi"}
-      ],
-      "num_samples": 10,
-      "voting_strategy": "plurality",
-      "red_flagging": true
-    },
-    "yacht_tactical_agent": {
-      "tasks": [
-        {"id": "ais_parse", "description": "AIS verisini çözümle"},
-        {"id": "wind_wave_analysis", "description": "Rüzgar ve dalga analizi"},
-        {"id": "optimal_route_calc", "description": "En uygun rota hesapla"},
-        {"id": "voice_alert_generation", "description": "Sesli uyarı üret"}
-      ],
-      "num_samples": 16,
+      "skills": [],
       "voting_strategy": "confidence_fused",
       "red_flagging": true
     }
@@ -60,7 +43,7 @@ const AGENT_CONFIG: AgentConfig = {
   }
 };
 
-const generateInitialNodes = (config: AgentConfig): Node[] => {
+const generateInitialNodes = (config: AgentFrameworkConfig): Node[] => {
     const initialNodes: Node[] = [
         { id: 'ada-central', name: 'Ada Koordinatör', type: NodeType.CENTRAL, status: 'online' },
     ];
@@ -68,9 +51,19 @@ const generateInitialNodes = (config: AgentConfig): Node[] => {
         initialNodes.push({
             id: agentId,
             name: agentId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            type: agentId as NodeType, // Assuming NodeType enum matches agentId strings
+            type: agentId as NodeType,
             status: 'online',
             instanceName: 'Main'
+        });
+    });
+    // Add provider nodes
+    Object.values(config.providers).forEach(provider => {
+        initialNodes.push({
+            id: provider.id,
+            name: provider.description,
+            type: NodeType.GENERIC, // Or a new NodeType.PROVIDER
+            status: 'online',
+            instanceName: 'Provider'
         });
     });
     return initialNodes;
@@ -80,21 +73,26 @@ const generateInitialNodes = (config: AgentConfig): Node[] => {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const CHECKPOINT_INTERVAL = 10;
-const CHECKPOINT_KEY = 'adaNodeCheckpoint_v2';
+const CHECKPOINT_KEY = 'adaNodeCheckpoint_v3';
 
 export const useAdaNode = () => {
-  const [agentConfig] = useState<AgentConfig>(AGENT_CONFIG);
-  const [nodes, setNodes] = useState<Node[]>(() => generateInitialNodes(agentConfig));
+  const [agentFrameworkConfig] = useState<AgentFrameworkConfig>(AGENT_FRAMEWORK_CONFIG);
+  const [nodes, setNodes] = useState<Node[]>(() => generateInitialNodes(agentFrameworkConfig));
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeConnections, setActiveConnections] = useState<[string, string][]>([]);
   const [errorConnections, setErrorConnections] = useState<[string, string][]>([]);
   const [logCounter, setLogCounter] = useState(0);
+  const [fastRTC, setFastRTC] = useState<FastRTCService | null>(null);
   
-  // Deprecated state, can be removed if map is no longer needed.
   const [route, setRoute] = useState<any>(null);
 
-  const addLog = useCallback((type: LogType, message: string, source?: string, details?: { voteDistribution?: Record<string, number> }) => {
+  const addLog = useCallback((type: LogType, message: string, source?: string, details?: { 
+    voteDistribution?: Record<string, number>,
+    requestId?: string,
+    responseTimeMs?: number,
+    direction?: 'inbound' | 'outbound',
+   }) => {
     setLogs(prev => {
       const newLog: LogEntry = {
         id: Date.now() + Math.random(),
@@ -104,7 +102,6 @@ export const useAdaNode = () => {
         source,
         ...details
       };
-      // Keep the log list from getting too large for performance
       const newLogs = [newLog, ...prev];
       if (newLogs.length > 200) {
         newLogs.pop();
@@ -116,26 +113,23 @@ export const useAdaNode = () => {
 
   const saveStateToLocalStorage = useCallback(() => {
     try {
-        const stateToSave = { nodes, logs: logs.slice(0, 50), logCounter }; // Save only recent logs
+        const stateToSave = { nodes, logs: logs.slice(0, 50), logCounter };
         localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(stateToSave));
-        addLog(LogType.INFO, 'State checkpoint saved.', 'System');
+        // We avoid logging here to prevent recursive loops with the log counter
     } catch (error) {
         console.error("Failed to save checkpoint:", error);
     }
-  }, [nodes, logs, logCounter, addLog]);
+  }, [nodes, logs, logCounter]);
   
   const loadStateFromLocalStorage = useCallback(() => {
       try {
           const savedState = localStorage.getItem(CHECKPOINT_KEY);
           if (savedState) {
               const restoredState = JSON.parse(savedState);
-              setNodes(restoredState.nodes || generateInitialNodes(agentConfig));
+              setNodes(restoredState.nodes || generateInitialNodes(agentFrameworkConfig));
               setLogs(restoredState.logs || []);
               setLogCounter(restoredState.logCounter || 0);
-              setLogs(prev => [
-                { id: Date.now(), timestamp: new Date().toLocaleTimeString(), type: LogType.INFO, message: 'State restored from checkpoint.', source: 'System' }, 
-                ...prev
-              ]);
+              addLog(LogType.INFO, 'State restored from checkpoint.', 'System');
           } else {
             addLog(LogType.INFO, 'No checkpoint found.', 'System');
           }
@@ -143,13 +137,31 @@ export const useAdaNode = () => {
           console.error("Failed to load checkpoint:", error);
           addLog(LogType.ERROR, 'Failed to load checkpoint.', 'System');
       }
-  }, [addLog, agentConfig]);
+  }, [addLog, agentFrameworkConfig]);
 
   useEffect(() => {
       if (logCounter > 0 && logCounter % CHECKPOINT_INTERVAL === 0) {
           saveStateToLocalStorage();
       }
   }, [logCounter, saveStateToLocalStorage]);
+
+  const updateNodeStatus = useCallback((nodeId: string, status: Node['status']) => {
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, status } : n));
+  }, []);
+
+  const handleRequestTimeout = useCallback(({ requestId, from, to }: { requestId: string, from: string, to: string }) => {
+    addLog(LogType.TIMEOUT, `Request to node '${to}' timed out.`, 'fastRTC', { requestId });
+    setErrorConnections(prev => [...prev, [from, to]]);
+    updateNodeStatus(to, 'offline');
+  }, [addLog, updateNodeStatus]);
+
+   useEffect(() => {
+    const rtcLogCallback: any = (type: LogType, message: string, source: string, details: any) => {
+        addLog(type, message, source, details);
+    };
+    
+    setFastRTC(new FastRTCService(rtcLogCallback, handleRequestTimeout));
+  }, [addLog, handleRequestTimeout]);
   
   const addNode = useCallback((type: NodeType, instanceName: string) => {
     const newNode: Node = {
@@ -163,87 +175,140 @@ export const useAdaNode = () => {
     addLog(LogType.INFO, `New node cloned: ${newNode.name} (${type})`, 'Coordinator');
   }, [addLog]);
 
-  const updateNodeStatus = useCallback((nodeId: string, status: Node['status']) => {
-    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, status } : n));
-  }, []);
 
-  const simulateMeshCommunication = useCallback(async (
-    fromNodeId: string,
-    toNodeId: string,
-    taskDescription: string,
-    isVotingEnabled = false,
-    voterCount = 3
-  ) => {
-    const fromNode = nodes.find(n => n.id === fromNodeId);
-    const toNode = nodes.find(n => n.id === toNodeId);
-    if (!fromNode || !toNode) throw new Error("Communication nodes not found.");
-
-    setActiveConnections(prev => [...prev, [fromNodeId, toNodeId]]);
-    updateNodeStatus(toNodeId, 'processing');
-    await sleep(500);
-
-    const requestPrompt = `As ${fromNode.name}, request ${toNode.name} to perform the task: '${taskDescription}'`;
-    let finalResponseMsg: string;
-
-    if (isVotingEnabled) {
-        addLog(LogType.VOTING, `Running vote with ${voterCount} agents for task: ${taskDescription}`, fromNode.name);
-        const votingPrompt = `You are an AI agent. Decide the next action for '${taskDescription}'. Your response MUST be a JSON object with "decision", "reason", and "confidence" (0.0-1.0). The 'decision' field MUST be one of: ['CONFIRM', 'REJECT', 'ABSTAIN']. Example: {"decision": "CONFIRM", "reason": "All prerequisites are met.", "confidence": 0.95}`;
-        const voteResult = await performMajorityVote(votingPrompt, voterCount);
-
-        const voteLogDetails = { voteDistribution: voteResult.voteDistribution };
-
-        if (voteResult.isConsensus && voteResult.majorityDecision === 'confirm') {
-            addLog(LogType.CONSENSUS, `Consensus: '${voteResult.majorityDecision}' (Confidence: ${voteResult.confidence.toFixed(2)})`, fromNode.name, voteLogDetails);
-            finalResponseMsg = await generateContent(`As ${toNode.name}, generate a success confirmation for completing '${taskDescription}'.`);
-        } else {
-            const reason = voteResult.isConsensus ? `Consensus was to '${voteResult.majorityDecision}'` : 'No clear consensus reached';
-            addLog(LogType.BACKTRACK, `${reason}. Backtracking operation. (Confidence: ${voteResult.confidence.toFixed(2)})`, fromNode.name, voteLogDetails);
-            setErrorConnections(prev => [...prev, [fromNodeId, toNodeId]]);
-            throw new Error(`Consensus failed or rejected for ${toNode.name}.`);
-        }
-    } else {
-        const requestMsg = await generateContent(requestPrompt);
-        addLog(LogType.REQUEST, requestMsg, fromNode.name);
-        await sleep(1000);
-        addLog(LogType.ACK, `'${taskDescription}' task received and is being processed.`, toNode.name);
-        await sleep(500);
-        finalResponseMsg = await generateContent(`As ${toNode.name}, generate a response for completing '${taskDescription}'.`);
-    }
-    
-    addLog(LogType.RESPONSE, finalResponseMsg, toNode.name);
-    updateNodeStatus(toNodeId, 'online');
-    await sleep(500);
-  }, [addLog, updateNodeStatus, nodes]);
-
+  // ==================================================================
+  // MCP (Master Control Program) Core Logic
+  // ==================================================================
   const executeTask = useCallback(async (taskDetails: TaskDetails, isVotingEnabled: boolean, voterCount: number) => {
     setIsProcessing(true);
     setErrorConnections([]);
+
+    const { agentId, skillId, providerId, toolId } = taskDetails;
+    if (!agentId || !skillId) {
+        addLog(LogType.ERROR, "Task execution requires at least an Agent and a Skill.", 'MCP');
+        setIsProcessing(false);
+        return;
+    }
+
+    addLog(LogType.INFO, `Task injected: Agent '${agentId}', Skill '${skillId}'`, 'Observer');
+    addLog(LogType.INFO, `Execution parameters: MAKER Mode: ${isVotingEnabled ? `ON` : 'OFF'}`, 'System');
     
-    const { agentId, task } = taskDetails;
-    const taskDescription = task.description;
-    
-    addLog(LogType.INFO, `Task injected: '${taskDescription}' on Agent '${agentId}'`, 'Observer');
-    await sleep(200);
-    addLog(LogType.INFO, `Connecting via fastRTC Katmanı... (MAKER Mode: ${isVotingEnabled ? `ON, Voters: ${voterCount}` : 'OFF'})`, 'Coordinator');
-    await sleep(500);
+    const involvedProviderIds = new Set<string>();
+
+    const sealOperation = async (finalMessage: string) => {
+        if (agentFrameworkConfig.general.auto_seal) {
+            addLog(LogType.SEAL, `Sealing operation results for skill '${skillId}'.`, 'MCP');
+            const nodesToSeal = Array.from(involvedProviderIds);
+            nodesToSeal.forEach(id => updateNodeStatus(id, 'sealing'));
+            await sleep(1500); // Visual delay for sealing effect
+            
+            addLog(LogType.SUCCESS, finalMessage, 'Coordinator');
+            saveStateToLocalStorage(); // Persist the final state
+            addLog(LogType.INFO, 'State checkpoint saved.', 'System');
+
+            nodesToSeal.forEach(id => updateNodeStatus(id, 'online'));
+        } else {
+            addLog(LogType.INFO, `Auto-seal disabled. Skipping state save.`, 'System');
+            addLog(LogType.SUCCESS, finalMessage, 'Coordinator');
+        }
+    };
 
     try {
-      const coordinatorId = 'ada-central';
-      
-      // Simulate a simple 2-step process: Coordinator delegates to the selected agent.
-      await simulateMeshCommunication(coordinatorId, agentId, taskDescription, isVotingEnabled, voterCount);
-      
-      const finalMsg = await generateContent(`Generate a final success message for orchestrating the agent '${agentId}' to complete the task: '${taskDescription}'.`);
-      addLog(LogType.SUCCESS, finalMsg, 'Coordinator');
+        const agent = agentFrameworkConfig.modules[agentId];
+        const skill = agent.skills.find(s => s.id === skillId);
+        if (!skill) throw new Error(`Skill '${skillId}' not found for agent '${agentId}'.`);
+
+        // --- MCP Tool Selection ---
+        let providersToRun = skill.providerIds;
+        if (providerId) { // User selected a specific provider
+            providersToRun = [providerId];
+        }
+        
+        const toolsToRun: { providerId: string, toolId: string }[] = [];
+        for (const pId of providersToRun) {
+            involvedProviderIds.add(pId);
+            const provider = agentFrameworkConfig.providers[pId];
+            if (provider) {
+                if (toolId && provider.supportedToolIds.includes(toolId)) { // User selected a specific tool
+                    toolsToRun.push({ providerId: pId, toolId: toolId });
+                } else if (!toolId) { // Run all tools for the provider
+                    provider.supportedToolIds.forEach(tId => toolsToRun.push({ providerId: pId, toolId: tId }));
+                }
+            }
+        }
+        
+        if (toolsToRun.length === 0) {
+            throw new Error(`No compatible tools found for the selection.`);
+        }
+
+        addLog(LogType.TOOL_SELECTION, `MCP selected ${toolsToRun.length} tool(s) for skill '${skillId}': ${toolsToRun.map(t => t.toolId).join(', ')}`, 'MCP');
+        
+        // --- Tool Execution ---
+        const coordinatorId = 'ada-central';
+        const toolOutputs: ToolOutput[] = [];
+
+        let toolIndex = 0;
+        for (const { providerId, toolId } of toolsToRun) {
+            updateNodeStatus(providerId, 'processing');
+            setActiveConnections(prev => [...prev, [coordinatorId, providerId]]);
+            
+            const tool = agentFrameworkConfig.tools[toolId];
+            const taskDescription = tool.description;
+            const requestId = fastRTC!.handleOutbound(coordinatorId, providerId, taskDescription);
+
+            try {
+                const prompt = `You are the tool '${toolId}'. Execute the task: '${taskDescription}'. Your response MUST be a JSON object with "decision", "reason", and "confidence" (0.0-1.0).`;
+                const result = await generateVotableContent(prompt);
+                toolOutputs.push({ toolId, providerId, response: result });
+                fastRTC!.handleInbound(requestId, `Tool '${toolId}' completed successfully.`);
+            } catch (e) {
+                const errorMsg = e instanceof Error ? e.message : 'Unknown tool error';
+                toolOutputs.push({ toolId, providerId, response: null });
+                fastRTC!.handleInbound(requestId, `Tool '${toolId}' failed: ${errorMsg}`);
+                setErrorConnections(prev => [...prev, [coordinatorId, providerId]]);
+            } finally {
+                updateNodeStatus(providerId, 'online');
+            }
+
+            // Add delay if it's not the last tool to prevent rate limiting
+            if (toolIndex < toolsToRun.length - 1) {
+                await sleep(6000); 
+            }
+            toolIndex++;
+        }
+        
+        // --- Consensus & Sealing ---
+        if (isVotingEnabled) {
+            addLog(LogType.VOTING, `Running consensus vote on ${toolOutputs.length} tool outputs...`, 'MCP');
+            const voteResult = performMajorityVote(toolOutputs);
+            
+            if (voteResult.isConsensus && voteResult.majorityDecision === 'confirm') {
+                addLog(LogType.CONSENSUS, `Consensus: '${voteResult.majorityDecision}' (Confidence: ${voteResult.confidence.toFixed(2)})`, 'MCP', { voteDistribution: voteResult.voteDistribution });
+                const finalMessage = `Consensus reached. Task '${skill.description}' successfully executed.`;
+                await sealOperation(finalMessage);
+            } else {
+                 const reason = voteResult.isConsensus ? `Consensus was to '${voteResult.majorityDecision}'` : 'No clear consensus reached';
+                 addLog(LogType.BACKTRACK, `${reason}. Backtracking operation.`, 'MCP', { voteDistribution: voteResult.voteDistribution });
+                 throw new Error(`Consensus failed or was rejected.`);
+            }
+        } else {
+            const finalMessage = `Task '${skill.description}' completed without consensus check.`;
+            await sealOperation(finalMessage);
+        }
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      addLog(LogType.ERROR, `Task failed: ${errorMessage}`);
+      addLog(LogType.ERROR, `Task failed: ${errorMessage}`, 'MCP');
     } finally {
       setIsProcessing(false);
       setActiveConnections([]);
     }
-  }, [addLog, simulateMeshCommunication]);
+  }, [addLog, agentFrameworkConfig, fastRTC, saveStateToLocalStorage, updateNodeStatus]);
+  
+  const executeTaskBatch = useCallback(async (tasks: TaskDetails[], isVotingEnabled: boolean, voterCount: number) => {
+    addLog(LogType.INFO, `Batch execution is not compatible with the new MCP architecture. Please run tasks individually.`, 'System');
+  }, [addLog]);
 
-  return { nodes, agentConfig, logs, route, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog };
+
+  return { nodes, agentFrameworkConfig, logs, route, isProcessing, executeTask, executeTaskBatch, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog };
 };

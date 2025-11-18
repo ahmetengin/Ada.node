@@ -164,12 +164,14 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
 
                     if (isError) {
                         statusColor = 'border-red-500 animate-pulse-red';
+                    } else if (node.status === 'sealing') {
+                        statusColor = 'border-[var(--color-primary)] animate-pulse-cyan';
                     } else if (node.status === 'processing') {
                         statusColor = 'border-yellow-400 animate-pulse-yellow';
                     } else if (isActive) {
                         statusColor = 'border-green-400 animate-pulse-green';
                     } else if (node.status === 'online') {
-                         statusColor = 'border-[var(--color-primary)]';
+                         statusColor = 'border-[var(--color-primary)]/50';
                     }
 
                     return (
@@ -181,7 +183,7 @@ const NodeStatusPanel: React.FC<NodeStatusPanelProps> = ({ nodes, isProcessing, 
                                 width: size, height: size,
                                 transform: `translate(-50%, -50%)`,
                                 zIndex: 2,
-                                boxShadow: isActive || isError ? '0 0 15px currentColor' : 'none'
+                                boxShadow: isActive || isError || node.status === 'sealing' ? '0 0 15px currentColor' : 'none'
                             }}
                             title={`${node.name} (${node.status})`}
                         >

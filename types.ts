@@ -13,25 +13,38 @@ export interface Node {
   id: string;
   name: string;
   type: NodeType;
-  status: 'online' | 'offline' | 'processing';
+  status: 'online' | 'offline' | 'processing' | 'sealing';
   instanceName?: string; 
 }
 
-// New data-driven structures
-export interface Task {
+// New "Capability Matrix" data structures
+export interface Tool {
   id: string;
   description: string;
 }
 
+export interface Provider {
+  id: string;
+  description: string;
+  supportedToolIds: string[];
+}
+
+export interface Skill {
+  id: string;
+  description: string;
+  providerIds: string[];
+}
+
 export interface AgentModule {
-  tasks: Task[];
-  num_samples: number;
+  skills: Skill[];
   voting_strategy: string;
   red_flagging: boolean;
 }
 
-export interface AgentConfig {
+export interface AgentFrameworkConfig {
   modules: Record<string, AgentModule>;
+  providers: Record<string, Provider>;
+  tools: Record<string, Tool>;
   general: {
     auto_seal: boolean;
     run_interval_hours: number;
@@ -41,10 +54,18 @@ export interface AgentConfig {
   };
 }
 
-// Simplified TaskDetails for execution
+// TaskDetails for execution, now reflects the hierarchy
 export interface TaskDetails {
   agentId: string;
-  task: Task;
+  skillId?: string;
+  providerId?: string;
+  toolId?: string;
+}
+
+export interface ToolOutput {
+  toolId: string;
+  providerId: string;
+  response: VotableResponse | null;
 }
 
 
@@ -61,6 +82,10 @@ export enum LogType {
   VOTING = 'VOTING',
   CONSENSUS = 'CONSENSUS',
   BACKTRACK = 'BACKTRACK',
+  RTC_MESSAGE = 'RTC_MESSAGE',
+  TIMEOUT = 'TIMEOUT',
+  TOOL_SELECTION = 'TOOL_SELECTION',
+  SEAL = 'SEAL',
 }
 
 export interface LogEntry {
@@ -70,6 +95,9 @@ export interface LogEntry {
   message: string;
   source?: string;
   voteDistribution?: Record<string, number>;
+  requestId?: string;
+  responseTimeMs?: number;
+  direction?: 'inbound' | 'outbound';
 }
 
 export type ConversationStatus = 'idle' | 'connecting' | 'connected' | 'error';
@@ -95,11 +123,11 @@ export interface VoteOutcome {
   majorityDecision: string | null;
   confidence: number;
   voteDistribution: Record<string, number>;
-  rawResponses: VotableResponse[];
+  rawResponses: ToolOutput[];
 }
 
 export interface VotableResponse {
     decision: string;
-    reason: string;
+    reason:string;
     confidence: number;
 }

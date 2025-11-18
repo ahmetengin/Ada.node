@@ -1,6 +1,6 @@
 import React from 'react';
 import { LogEntry, LogType } from '../types';
-import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb, Scale, Undo2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb, Scale, Undo2, Zap, TimerOff, Clock, ClipboardCheck, ShieldCheck } from 'lucide-react';
 
 interface ActivityLogProps {
   logs: LogEntry[];
@@ -32,13 +32,21 @@ const getLogStyle = (type: LogType) => {
       return { icon: <CheckCheck size={16} />, color: 'text-green-300', };
     case LogType.BACKTRACK:
       return { icon: <Undo2 size={16} />, color: 'text-yellow-300', };
+    case LogType.RTC_MESSAGE:
+      return { icon: <Zap size={16} />, color: 'text-cyan-400', };
+    case LogType.TIMEOUT:
+      return { icon: <TimerOff size={16} />, color: 'text-red-500', };
+    case LogType.TOOL_SELECTION:
+        return { icon: <ClipboardCheck size={16} />, color: 'text-purple-300', };
+    case LogType.SEAL:
+        return { icon: <ShieldCheck size={16} />, color: 'text-[var(--color-primary)]', };
     default:
       return { icon: <Info size={16} />, color: 'text-gray-400', };
   }
 };
 
 const VoteDistributionChart: React.FC<{ distribution: Record<string, number> }> = ({ distribution }) => {
-    const totalVotes = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+    const totalVotes = Object.values(distribution).reduce((sum: number, count: number) => sum + count, 0);
     if (totalVotes === 0) return null;
 
     const getBarColor = (decision: string) => {
@@ -83,10 +91,24 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
                 <span className={`mt-0.5 ${color}`}>{icon}</span>
                 <div className="flex-grow">
                   <div className="flex justify-between items-baseline">
-                      <p className={`font-semibold ${color}`}>{log.type} {log.source ? `(${log.source})` : ''}</p>
+                      <p className={`font-semibold ${color}`}>
+                        {log.type} {log.source ? `(${log.source})` : ''}
+                        {log.direction === 'outbound' && ' ->'}
+                        {log.direction === 'inbound' && ' <-'}
+                      </p>
                       <p className="text-xs text-gray-500 font-mono">{log.timestamp}</p>
                   </div>
                   <p className="text-[var(--color-text)]">{log.message}</p>
+                  {log.requestId && (
+                      <div className="text-xs text-gray-500 font-mono mt-1 flex items-center gap-4">
+                          <span>ID: {log.requestId}</span>
+                          {log.responseTimeMs !== undefined && (
+                              <span className="flex items-center gap-1">
+                                  <Clock size={12} /> {log.responseTimeMs}ms
+                              </span>
+                          )}
+                      </div>
+                  )}
                   {log.voteDistribution && <VoteDistributionChart distribution={log.voteDistribution} />}
                 </div>
               </li>

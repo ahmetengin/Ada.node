@@ -94,9 +94,14 @@
         0%, 100% { border-color: rgba(248, 113, 113, 0.7); box-shadow: 0 0 15px rgba(248, 113, 113, 0.8); }
         50% { border-color: rgba(248, 113, 113, 1); box-shadow: 0 0 25px rgba(248, 113, 113, 1); }
       }
+      @keyframes pulse-glow-cyan {
+        0%, 100% { border-color: rgba(34, 211, 238, 0.7); box-shadow: 0 0 20px rgba(34, 211, 238, 0.8); }
+        50% { border-color: rgba(34, 211, 238, 1); box-shadow: 0 0 30px rgba(34, 211, 238, 1); }
+      }
       .animate-pulse-green { animation: pulse-glow-green 1.5s infinite ease-in-out; }
       .animate-pulse-yellow { animation: pulse-glow-yellow 1.5s infinite ease-in-out; }
       .animate-pulse-red { animation: pulse-glow-red 1.5s infinite ease-in-out; }
+      .animate-pulse-cyan { animation: pulse-glow-cyan 1s infinite ease-in-out; }
 
       @keyframes line-flow {
         to {

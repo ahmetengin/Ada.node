@@ -11,8 +11,8 @@ const EditorPanel: React.FC<EditorPanelProps> = ({ content }) => {
       .replace(/\/\*\*[\s\S]*?\*\//g, (match) => `<span class="text-green-400">${match}</span>`) // JSDoc comments
       .replace(/\/\/.*/g, (match) => `<span class="text-gray-500">${match}</span>`) // Single line comments
       .replace(/\b(const|let|new|import|from|return|if|else|switch|case|break|default|for|while|do|try|catch|finally|throw|async|await|class|extends|super|this|true|false|null|undefined)\b/g, (match) => `<span class="text-pink-400">${match}</span>`) // Keywords
-      .replace(/\b(AdaNodeClient|console)\b/g, (match) => `<span class="text-teal-300">${match}</span>`) // Classes/Objects
-      .replace(/\b(run|log|error|then|catch|backtrack)\b/g, (match) => `<span class="text-blue-400">${match}</span>`) // Functions
+      .replace(/\b(MasterControlProgram|console)\b/g, (match) => `<span class="text-teal-300">${match}</span>`) // Classes/Objects
+      .replace(/\b(execute|selectTools|log|error|then|catch|backtrack)\b/g, (match) => `<span class="text-blue-400">${match}</span>`) // Functions
       .replace(/(\'|\`)(.*?)\1/g, (match, p1, p2) => `<span class="text-yellow-400">'${p2}'</span>`) // Strings
       .replace(/(\{|\}|\(|\)|\[|\])/g, (match) => `<span class="text-gray-400">${match}</span>`) // Brackets
       .replace(/\d+/g, (match) => `<span class="text-orange-400">${match}</span>`); // Numbers
@@ -22,7 +22,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({ content }) => {
     <div className="panel-glow p-4 flex flex-col h-full">
       <h3 className="text-sm font-semibold text-[var(--color-text-dim)] mb-2 flex items-center gap-2 flex-shrink-0 border-b border-white/10 pb-2">
         <Code2 size={16} className="text-[var(--color-primary)]"/>
-        <span>task-script.js</span>
+        <span>mcp-execution-plan.js</span>
       </h3>
       <div className="flex-grow bg-black/30 rounded-lg p-4 overflow-y-auto font-mono text-sm">
         <pre className="whitespace-pre-wrap">

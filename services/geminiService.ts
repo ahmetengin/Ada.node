@@ -26,6 +26,8 @@ const decisionSchema = {
     required: ['decision', 'reason', 'confidence'],
 };
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Generates a simple text response from a prompt.
  * @param prompt The text prompt to send to the model.
@@ -35,21 +37,38 @@ export const generateContent = async (prompt: string): Promise<string> => {
   if (!API_KEY) {
     return `[Gemini API key not configured] Fallback: ${prompt}`;
   }
-  try {
-    const client = getAiClient();
-    const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            temperature: 0.7,
-            topP: 0.9,
+  
+  const maxRetries = 5;
+  let delay = 7000; // Increased initial delay
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const client = getAiClient();
+      const response = await client.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+              temperature: 0.7,
+              topP: 0.9,
+          }
+      });
+      return response.text;
+    } catch (error: any) {
+        if (error.toString().includes('429') || (error.httpStatus && error.httpStatus === 429)) {
+            if (i === maxRetries - 1) {
+                console.error("Max retries reached for rate limit error.", error);
+                return `[ERROR] API rate limit exceeded. Please wait a moment and try again.`;
+            }
+            console.warn(`Rate limit hit on generateContent. Retrying in ${delay}ms...`);
+            await sleep(delay);
+            delay *= 2; // Exponential backoff
+        } else {
+            console.error("Error generating content with Gemini:", error);
+            return `[ERROR] An unexpected error occurred while generating content.`;
         }
-    });
-    return response.text;
-  } catch (error) {
-    console.error("Error generating content with Gemini:", error);
-    return `Error generating content. Fallback: ${prompt}`;
+    }
   }
+  return `[ERROR] Failed to generate content after all retries.`;
 };
 
 /**
@@ -63,28 +82,46 @@ export const generateVotableContent = async (prompt: string): Promise<VotableRes
         console.warn("Gemini API key not configured.");
         return null;
     }
-    try {
-        const client = getAiClient();
-        const response = await client.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                temperature: 0.8, // Higher temp for more diverse reasoning in votes
-                responseMimeType: "application/json",
-                responseSchema: decisionSchema,
+    
+    const maxRetries = 5;
+    let delay = 7000; // Increased initial delay
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const client = getAiClient();
+            const response = await client.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    temperature: 0.8, // Higher temp for more diverse reasoning in votes
+                    responseMimeType: "application/json",
+                    responseSchema: decisionSchema,
+                }
+            });
+
+            const jsonString = response.text.trim();
+            const parsed = JSON.parse(jsonString);
+            
+            if (typeof parsed.decision === 'string' && typeof parsed.reason === 'string' && typeof parsed.confidence === 'number') {
+                return parsed as VotableResponse;
             }
-        });
+            console.error("Failed to parse votable content after API call:", jsonString);
+            return null; // Parsing error, don't retry
 
-        const jsonString = response.text.trim();
-        const parsed = JSON.parse(jsonString);
-        
-        if (typeof parsed.decision === 'string' && typeof parsed.reason === 'string' && typeof parsed.confidence === 'number') {
-            return parsed as VotableResponse;
+        } catch (error: any) {
+             if (error.toString().includes('429') || (error.httpStatus && error.httpStatus === 429)) {
+                if (i === maxRetries - 1) {
+                    console.error("Max retries reached for rate limit error.", error);
+                    break; // Exit loop and return null
+                }
+                console.warn(`Rate limit hit on generateVotableContent. Retrying in ${delay}ms...`);
+                await sleep(delay);
+                delay *= 2; // Exponential backoff
+            } else {
+                console.error("Error generating votable content:", error);
+                break; // Exit loop for non-retryable errors (e.g., JSON parsing, etc.)
+            }
         }
-        return null;
-
-    } catch (error) {
-        console.error("Error generating votable content:", error);
-        return null;
     }
+    return null;
 }

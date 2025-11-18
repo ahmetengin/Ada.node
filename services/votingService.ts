@@ -1,45 +1,33 @@
-import { generateVotableContent } from './geminiService';
-import { VoteOutcome, VotableResponse } from '../types';
+import { ToolOutput, VoteOutcome, VotableResponse } from '../types';
 
 const CONFIDENCE_THRESHOLD = 0.7;
 
 /**
- * Performs a majority vote by making parallel calls to an AI model.
- * @param prompt The prompt describing the decision to be made.
- * @param voterCount The number of parallel AI instances to query for the vote.
- * @returns A VoteOutcome object with the results of the vote.
+ * Analyzes a collection of tool outputs to determine a consensus.
+ * This is a pure function and does not make any external API calls.
+ * @param toolOutputs An array of outputs from executed tools.
+ * @returns A VoteOutcome object with the results of the analysis.
  */
-export const performMajorityVote = async (prompt: string, voterCount: number): Promise<VoteOutcome> => {
-    const voterPromises: Promise<VotableResponse | null>[] = [];
-    
-    // Ensure voterCount is a sensible number for the demo (odd numbers are best to avoid ties).
-    const actualVoterCount = Math.max(1, Math.min(voterCount, 7));
-
-    for (let i = 0; i < actualVoterCount; i++) {
-        voterPromises.push(generateVotableContent(prompt));
+export const performMajorityVote = (toolOutputs: ToolOutput[]): VoteOutcome => {
+    const validResponses: ToolOutput[] = toolOutputs.filter(o => o.response);
+    if (validResponses.length === 0) {
+        return {
+            isConsensus: false,
+            majorityDecision: 'reject', // Default to reject if no valid responses
+            confidence: 0,
+            voteDistribution: { 'no_response': toolOutputs.length },
+            rawResponses: toolOutputs,
+        };
     }
-
-    const responses = (await Promise.all(voterPromises)).filter(
-        (res): res is VotableResponse => res !== null
-    );
 
     const voteDistribution: Record<string, number> = {};
     let totalConfidence = 0;
 
-    for (const res of responses) {
+    for (const output of validResponses) {
+        const res = output.response as VotableResponse;
         const decision = res.decision.toLowerCase().trim();
         voteDistribution[decision] = (voteDistribution[decision] || 0) + 1;
         totalConfidence += res.confidence;
-    }
-
-    if (responses.length === 0) {
-        return {
-            isConsensus: false,
-            majorityDecision: null,
-            confidence: 0,
-            voteDistribution: {},
-            rawResponses: [],
-        };
     }
 
     let majorityDecision: string | null = null;
@@ -55,13 +43,13 @@ export const performMajorityVote = async (prompt: string, voterCount: number): P
     const decisionsWithMaxVotes = Object.values(voteDistribution).filter(v => v === maxVotes);
     const hasTie = decisionsWithMaxVotes.length > 1;
 
-    const averageConfidence = totalConfidence / responses.length;
+    const averageConfidence = validResponses.length > 0 ? totalConfidence / validResponses.length : 0;
     
-    // Consensus is reached if there's no tie, the winner has >50% of the vote, and confidence is high.
+    // Consensus is reached if there's no tie, the winner has >50% of the valid votes, and confidence is high.
     const isConsensus = 
         !hasTie &&
         majorityDecision !== null && 
-        maxVotes > actualVoterCount / 2 &&
+        maxVotes > validResponses.length / 2 &&
         averageConfidence >= CONFIDENCE_THRESHOLD;
 
     return {
@@ -69,6 +57,6 @@ export const performMajorityVote = async (prompt: string, voterCount: number): P
         majorityDecision,
         confidence: averageConfidence,
         voteDistribution,
-        rawResponses: responses,
+        rawResponses: toolOutputs,
     };
 };
