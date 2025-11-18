@@ -1,6 +1,7 @@
 
+
 import React from 'react';
-import { AgentConfig, AgentModule } from './types';
+import { AgentConfig, AgentModule } from '../types';
 import { Cog } from 'lucide-react';
 
 interface AgentTasksPanelProps {

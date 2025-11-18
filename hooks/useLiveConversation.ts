@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
-import { ConversationStatus, TranscriptionEntry } from './types';
-import { createBlob, decode, decodeAudioData, blobToBase64 } from './utils/audio';
+import { ConversationStatus, TranscriptionEntry } from '../types';
+import { createBlob, decode, decodeAudioData, blobToBase64 } from '../utils/audio';
 
 // TFJS and segmentation model are loaded via script tags, so we declare them here.
 declare const bodySegmentation: any;

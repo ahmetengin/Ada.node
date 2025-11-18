@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Node, NodeType, LogEntry, LogType, TaskDetails, AgentConfig } from './types';
-import { generateContent } from './services/geminiService';
-import { performMajorityVote } from './services/votingService';
+import { Node, NodeType, LogEntry, LogType, TaskDetails, AgentConfig } from '../types';
+import { generateContent } from '../services/geminiService';
+import { performMajorityVote } from '../services/votingService';
 
 const AGENT_CONFIG: AgentConfig = {
   "modules": {
