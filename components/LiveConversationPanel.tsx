@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Mic, MicOff, Bot, User, Loader2, Video } from 'lucide-react';
 import { ConversationStatus, TranscriptionEntry } from '../types';
-import VirtualBackgroundControl from './VirtualBackgroundControl';
+import VirtualBackgroundControl from '../hooks/VirtualBackgroundControl';
 import type { BackgroundEffect } from '../hooks/useLiveConversation';
 
 interface LiveConversationPanelProps {

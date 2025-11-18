@@ -6,9 +6,12 @@ interface TaskInitiatorProps {
   onSubmit: (task: TaskDetails) => void;
   isProcessing: boolean;
   nodes: Node[];
+  isVotingEnabled: boolean;
+  voterCount: number;
+  setVoterCount: (count: number) => void;
 }
 
-const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, nodes }) => {
+const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, nodes, isVotingEnabled, voterCount, setVoterCount }) => {
   const [selectedSkill, setSelectedSkill] = useState<TaskDetails['skillName']>('congressOrganization');
   
   const [from, setFrom] =useState('İstanbul');
@@ -225,6 +228,31 @@ const TaskInitiator: React.FC<TaskInitiatorProps> = ({ onSubmit, isProcessing, n
             <option value="routePlanning">Route Planning</option>
          </select>
       </div>
+
+      <div className={`w-full transition-all duration-300 ${isVotingEnabled ? 'opacity-100 max-h-40' : 'opacity-50 max-h-0 overflow-hidden'}`}>
+         <div className="mt-2">
+            <label htmlFor="voterCount" className="text-xs text-[var(--color-text-dim)] flex justify-between">
+                <span>MAKER Voter Count</span>
+                <span className="font-mono bg-black/30 px-1.5 py-0.5 rounded">{voterCount}</span>
+            </label>
+            <input
+                id="voterCount"
+                type="range"
+                min="1"
+                max="7"
+                step="2"
+                value={voterCount}
+                onChange={(e) => setVoterCount(parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-black/40 rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)] mt-1"
+                disabled={!isVotingEnabled || isProcessing}
+            />
+            <div className="flex justify-between text-xs text-[var(--color-text-dim)] mt-1">
+                <span>Fast</span>
+                <span>Robust</span>
+            </div>
+         </div>
+      </div>
+
       <div className="flex-grow w-full overflow-y-auto pr-2">
           {renderInputs()}
       </div>

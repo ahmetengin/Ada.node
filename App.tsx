@@ -12,11 +12,12 @@ import { TaskDetails } from './types';
 
 const App: React.FC = () => {
   const [isVotingEnabled, setIsVotingEnabled] = useState(false);
+  const [voterCount, setVoterCount] = useState(3);
   const { nodes, skills, logs, route, isProcessing, executeTask, activeSkill, activeConnections, addNode, loadStateFromLocalStorage } = useAdaNode();
   const conversation = useLiveConversation();
 
   const handleExecuteTask = (task: TaskDetails) => {
-    executeTask(task, isVotingEnabled);
+    executeTask(task, isVotingEnabled, voterCount);
   }
 
   return (
@@ -55,6 +56,9 @@ const App: React.FC = () => {
               onSubmit={handleExecuteTask} 
               isProcessing={isProcessing || conversation.status !== 'idle'}
               nodes={nodes}
+              isVotingEnabled={isVotingEnabled}
+              voterCount={voterCount}
+              setVoterCount={setVoterCount}
             />
         </div>
         

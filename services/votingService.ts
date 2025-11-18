@@ -1,17 +1,21 @@
 import { generateVotableContent } from './geminiService';
 import { VoteOutcome, VotableResponse } from '../types';
 
-const VOTER_COUNT = 3; // Default to 3 for performance in a web demo. Can be increased to 7.
 const CONFIDENCE_THRESHOLD = 0.7;
 
 /**
  * Performs a majority vote by making parallel calls to an AI model.
  * @param prompt The prompt describing the decision to be made.
+ * @param voterCount The number of parallel AI instances to query for the vote.
  * @returns A VoteOutcome object with the results of the vote.
  */
-export const performMajorityVote = async (prompt: string): Promise<VoteOutcome> => {
+export const performMajorityVote = async (prompt: string, voterCount: number): Promise<VoteOutcome> => {
     const voterPromises: Promise<VotableResponse | null>[] = [];
-    for (let i = 0; i < VOTER_COUNT; i++) {
+    
+    // Ensure voterCount is a sensible number for the demo (odd numbers are best to avoid ties).
+    const actualVoterCount = Math.max(1, Math.min(voterCount, 7));
+
+    for (let i = 0; i < actualVoterCount; i++) {
         voterPromises.push(generateVotableContent(prompt));
     }
 
@@ -57,7 +61,7 @@ export const performMajorityVote = async (prompt: string): Promise<VoteOutcome> 
     const isConsensus = 
         !hasTie &&
         majorityDecision !== null && 
-        maxVotes > VOTER_COUNT / 2 &&
+        maxVotes > actualVoterCount / 2 &&
         averageConfidence >= CONFIDENCE_THRESHOLD;
 
     return {
