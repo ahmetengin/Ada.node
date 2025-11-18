@@ -1,3 +1,4 @@
+
 import { LogType } from '../types';
 
 type LogCallback = (type: LogType, message: string, source: string, details: {

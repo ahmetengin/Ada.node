@@ -1,14 +1,17 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { LogType } from '../types';
-import { Filter, X, ChevronDown } from 'lucide-react';
+import { Filter, X, ChevronDown, Sparkles } from 'lucide-react';
 
 interface ActivityLogFiltersProps {
   logs: any[];
+  filteredCount: number;
   typeFilters: Set<LogType>;
   setTypeFilters: React.Dispatch<React.SetStateAction<Set<LogType>>>;
   sourceFilters: Set<string>;
   setSourceFilters: React.Dispatch<React.SetStateAction<Set<string>>>;
   availableSources: string[];
+  onRequestAnalysis: (type: 'summary' | 'errors') => void;
 }
 
 const useOutsideClick = (ref: React.RefObject<HTMLDivElement>, callback: () => void) => {
@@ -52,16 +55,16 @@ const FilterDropdown: React.FC<{
                 <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                <div className="absolute top-full mt-2 w-48 bg-[var(--color-panel)] border border-white/20 rounded-md p-2 z-20 max-h-60 overflow-y-auto">
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[var(--color-panel)] border border-white/20 rounded-md p-2 z-20 max-h-60 overflow-y-auto">
                     {options.map(option => (
-                        <label key={option} className="flex items-center gap-2 p-1.5 text-xs rounded hover:bg-white/10 cursor-pointer">
+                        <label key={option} className="flex items-center gap-2 p-1.5 text-xs rounded hover:bg-white/10 cursor-pointer capitalize">
                             <input
                                 type="checkbox"
                                 className="h-3 w-3 rounded bg-black/30 border-white/30 text-[var(--color-primary)] focus:ring-0 focus:ring-offset-0"
                                 checked={selected.has(option)}
                                 onChange={() => handleToggle(option)}
                             />
-                            {option}
+                            {option.replace(/_/g, ' ')}
                         </label>
                     ))}
                 </div>
@@ -70,8 +73,30 @@ const FilterDropdown: React.FC<{
     );
 };
 
+const GeminiAnalysisDropdown: React.FC<{ onRequestAnalysis: (type: 'summary' | 'errors') => void }> = ({ onRequestAnalysis }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    useOutsideClick(wrapperRef, () => setIsOpen(false));
+    
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-yellow-400/20 text-yellow-400 border border-yellow-400/50 rounded-md hover:bg-yellow-400/30 transition-colors">
+                <Sparkles size={16} />
+                Analyze with Gemini
+                <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+             {isOpen && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[var(--color-panel)] border border-white/20 rounded-md p-2 z-20">
+                    <button onClick={() => { onRequestAnalysis('summary'); setIsOpen(false); }} className="w-full text-left p-2 text-xs rounded hover:bg-white/10">Summarize Last Task</button>
+                    <button onClick={() => { onRequestAnalysis('errors'); setIsOpen(false); }} className="w-full text-left p-2 text-xs rounded hover:bg-white/10">Explain All Errors</button>
+                </div>
+             )}
+        </div>
+    );
+};
 
-const ActivityLogFilters: React.FC<ActivityLogFiltersProps> = ({ logs, typeFilters, setTypeFilters, sourceFilters, setSourceFilters, availableSources }) => {
+
+const ActivityLogFilters: React.FC<ActivityLogFiltersProps> = ({ logs, filteredCount, typeFilters, setTypeFilters, sourceFilters, setSourceFilters, availableSources, onRequestAnalysis }) => {
     const activeFilterCount = typeFilters.size + sourceFilters.size;
     
     const handleClearFilters = () => {
@@ -87,7 +112,7 @@ const ActivityLogFilters: React.FC<ActivityLogFiltersProps> = ({ logs, typeFilte
                     <span>Activity Log</span>
                 </h3>
                  <span className="text-xs text-gray-400">
-                    (Showing {logs.length} of {logs.length} entries)
+                    (Showing {filteredCount} of {logs.length} entries)
                 </span>
             </div>
 
@@ -99,6 +124,7 @@ const ActivityLogFilters: React.FC<ActivityLogFiltersProps> = ({ logs, typeFilte
                         <X size={14} /> Clear ({activeFilterCount})
                     </button>
                 )}
+                <GeminiAnalysisDropdown onRequestAnalysis={onRequestAnalysis} />
             </div>
       </div>
     );

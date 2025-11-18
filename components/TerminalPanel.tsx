@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { LogEntry, LogType, AgentFrameworkConfig } from '../types';
 import { ArrowRight, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb, Scale, Undo2, Terminal, ClipboardCheck } from 'lucide-react';

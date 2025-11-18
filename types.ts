@@ -1,3 +1,4 @@
+
 export enum NodeType {
   CENTRAL = 'ada.central',
   TRAVEL_AGENT = 'travel_agent',
@@ -91,6 +92,7 @@ export enum LogType {
   CONTEXT_ENRICHMENT = 'CONTEXT_ENRICHMENT',
   WORKFLOW_STEP = 'WORKFLOW_STEP',
   MCP_DECISION = 'MCP_DECISION',
+  MCP_WORKFLOW_PLAN = 'MCP_WORKFLOW_PLAN',
 }
 
 export interface LogEntry {

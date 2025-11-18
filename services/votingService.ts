@@ -1,3 +1,4 @@
+
 import { ToolOutput, VoteOutcome, VotableResponse } from '../types';
 
 const CONFIDENCE_THRESHOLD = 0.7;

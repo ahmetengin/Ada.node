@@ -1,10 +1,12 @@
+
 import React, { useState } from 'react';
 import { LogEntry, LogType } from '../types';
-import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb, Scale, Undo2, Zap, TimerOff, Clock, ClipboardCheck, ShieldCheck, UserCheck, Workflow, BrainCircuit, Filter, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb, Scale, Undo2, Zap, TimerOff, Clock, ClipboardCheck, ShieldCheck, UserCheck, Workflow, BrainCircuit, Filter, X, Sparkles } from 'lucide-react';
 import ActivityLogFilters from './ActivityLogFilters';
 
 interface ActivityLogProps {
   logs: LogEntry[];
+  onRequestAnalysis: (type: 'summary' | 'errors' | 'explain_error', log?: LogEntry) => void;
 }
 
 const getLogStyle = (type: LogType) => {
@@ -28,6 +30,7 @@ const getLogStyle = (type: LogType) => {
     case LogType.CONTEXT_ENRICHMENT: return { icon: <UserCheck size={16} />, color: 'text-teal-300' };
     case LogType.WORKFLOW_STEP: return { icon: <Workflow size={16} />, color: 'text-indigo-300' };
     case LogType.MCP_DECISION: return { icon: <BrainCircuit size={16} />, color: 'text-pink-400' };
+    case LogType.MCP_WORKFLOW_PLAN: return { icon: <Workflow size={16} />, color: 'text-indigo-400' };
     default: return { icon: <Info size={16} />, color: 'text-gray-400' };
   }
 };
@@ -54,7 +57,7 @@ const VoteDistributionChart: React.FC<{ distribution: Record<string, number> }> 
     );
 };
 
-const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
+const ActivityLog: React.FC<ActivityLogProps> = ({ logs, onRequestAnalysis }) => {
   const [typeFilters, setTypeFilters] = useState<Set<LogType>>(new Set());
   const [sourceFilters, setSourceFilters] = useState<Set<string>>(new Set());
 
@@ -70,11 +73,13 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
     <div className="panel-glow p-4 flex flex-col min-h-0 h-full">
       <ActivityLogFilters
         logs={logs}
+        filteredCount={filteredLogs.length}
         typeFilters={typeFilters}
         setTypeFilters={setTypeFilters}
         sourceFilters={sourceFilters}
         setSourceFilters={setSourceFilters}
         availableSources={availableSources}
+        onRequestAnalysis={onRequestAnalysis}
       />
       <div className="flex-grow bg-black/30 rounded-lg p-2 overflow-y-auto mt-2">
         {filteredLogs.length === 0 ? (
@@ -86,7 +91,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
             {filteredLogs.map((log) => {
               const { icon, color } = getLogStyle(log.type);
               return (
-                <li key={log.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-white/5">
+                <li key={log.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-white/5 group">
                   <span className={`mt-0.5 ${color}`}>{icon}</span>
                   <div className="flex-grow">
                     <div className="flex justify-between items-baseline">
@@ -108,6 +113,15 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ logs }) => {
                     )}
                     {log.voteDistribution && <VoteDistributionChart distribution={log.voteDistribution} />}
                   </div>
+                   {log.type === LogType.ERROR && (
+                      <button 
+                        onClick={() => onRequestAnalysis('explain_error', log)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-yellow-400 hover:text-yellow-300"
+                        title="Analyze Error with Gemini"
+                      >
+                        <Sparkles size={16} />
+                      </button>
+                    )}
                 </li>
               );
             })}
