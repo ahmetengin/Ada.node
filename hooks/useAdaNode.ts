@@ -1,6 +1,5 @@
-
 import { useState, useCallback, useEffect } from 'react';
-import { Node, NodeType, LogEntry, LogType, TaskDetails, AgentFrameworkConfig, ToolOutput, TaskContext } from '../types';
+import { Node, NodeType, LogEntry, LogType, TaskDetails, AgentFrameworkConfig, ToolOutput, TaskContext, SystemMetrics } from '../types';
 import { generateContent } from '../services/geminiService';
 import { AGENT_FRAMEWORK_CONFIG } from '../services/agentFrameworkConfig';
 import { simulateProviderResponse } from '../services/providerSimulationService';
@@ -8,24 +7,23 @@ import { fetchCustomerProfile } from '../services/crmSimulationService';
 
 const generateInitialNodes = (config: AgentFrameworkConfig): Node[] => {
     const initialNodes: Node[] = [
-        { id: 'ada.central', name: 'Ada Koordinatör', type: NodeType.CENTRAL, status: 'online' },
+        { id: 'ada.central', name: 'Ada Coordinator', type: NodeType.CENTRAL, status: 'online', lastActive: Date.now() },
     ];
-    // Add agents from modules
     Object.keys(config.modules).forEach(agentId => {
         initialNodes.push({
             id: agentId,
-            name: agentId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            name: agentId,
             type: agentId as NodeType,
             status: 'online',
-            instanceName: 'Main'
+            instanceName: 'Main',
+            lastActive: 0
         });
     });
     return initialNodes;
 };
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const CHECKPOINT_KEY = 'adaNodeCheckpoint_v5_final';
+const CHECKPOINT_KEY = 'adaNodeCheckpoint_v6_ghostty';
 
 export const useAdaNode = () => {
   const [agentFrameworkConfig] = useState<AgentFrameworkConfig>(AGENT_FRAMEWORK_CONFIG);
@@ -34,29 +32,44 @@ export const useAdaNode = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeConnections, setActiveConnections] = useState<[string, string][]>([]);
   const [errorConnections, setErrorConnections] = useState<[string, string][]>([]);
+  
+  // New Metrics State
+  const [metrics, setMetrics] = useState<SystemMetrics>({
+      totalTasks: 0,
+      successfulTasks: 0,
+      failedTasks: 0,
+      totalTokens: 0,
+      totalLatencyMs: 0,
+      activeAgents: 0,
+      avgConfidence: 0.95
+  });
 
   const addLog = useCallback((type: LogType, message: string, source?: string, details?: Omit<Partial<LogEntry>, 'id' | 'timestamp' | 'type' | 'message' | 'source'>) => {
     setLogs(prev => {
       const newLog: LogEntry = {
         id: Date.now() + Math.random(),
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' }),
         type,
         message,
         source,
         ...details
       };
-      return [newLog, ...prev.slice(0, 499)];
+      return [newLog, ...prev.slice(0, 999)]; // Keep 1000 logs
     });
+  }, []);
+
+  const updateMetrics = useCallback((updates: Partial<SystemMetrics>) => {
+      setMetrics(prev => ({ ...prev, ...updates }));
   }, []);
 
   const saveStateToLocalStorage = useCallback(() => {
     try {
-        const stateToSave = { nodes, logs: logs.slice(0, 100) }; // Save more logs
+        const stateToSave = { nodes, logs: logs.slice(0, 100), metrics }; 
         localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(stateToSave));
     } catch (error) {
         console.error("Failed to save checkpoint:", error);
     }
-  }, [nodes, logs]);
+  }, [nodes, logs, metrics]);
   
   const loadStateFromLocalStorage = useCallback(() => {
       try {
@@ -65,38 +78,47 @@ export const useAdaNode = () => {
               const restoredState = JSON.parse(savedState);
               setNodes(restoredState.nodes || generateInitialNodes(agentFrameworkConfig));
               setLogs(restoredState.logs || []);
-              addLog(LogType.INFO, 'State restored from checkpoint.', 'System');
+              if (restoredState.metrics) setMetrics(restoredState.metrics);
+              addLog(LogType.INFO, 'System state restored from disk.', 'SYS');
           } else {
-            addLog(LogType.INFO, 'No checkpoint found.', 'System');
+            addLog(LogType.INFO, 'No checkpoint found on disk.', 'SYS');
           }
       } catch (error) {
-          addLog(LogType.ERROR, 'Failed to load checkpoint.', 'System');
+          addLog(LogType.ERROR, 'Failed to load checkpoint.', 'SYS');
       }
   }, [addLog, agentFrameworkConfig]);
 
-  const updateNodeStatus = useCallback((nodeId: string, status: Node['status']) => {
-    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, status } : n));
+  const updateNodeStatus = useCallback((nodeId: string, status: Node['status'], task?: string) => {
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, status, lastActive: Date.now(), currentTask: task } : n));
+    if (status === 'processing') {
+        setMetrics(prev => ({ ...prev, activeAgents: prev.activeAgents + 1 }));
+    } else if (status === 'online' || status === 'offline') {
+        setMetrics(prev => ({ ...prev, activeAgents: Math.max(0, prev.activeAgents - 1) }));
+    }
   }, []);
   
   const addNode = useCallback((type: NodeType, instanceName: string) => {
     const newNode: Node = {
         id: `${type}.${instanceName.toLowerCase().replace(/\s/g, '-')}-${Date.now()}`,
-        name: `${type.replace(/_/g, ' ')} ${instanceName}`.replace(/\b\w/g, l => l.toUpperCase()),
+        name: `${type}`,
         type,
         status: 'online',
         instanceName,
+        lastActive: Date.now()
     };
     setNodes(prev => [...prev, newNode]);
-    addLog(LogType.INFO, `New node cloned: ${newNode.name} (${type})`, 'Coordinator');
+    addLog(LogType.INFO, `Spawning new process: ${newNode.id}`, 'MCP');
   }, [addLog]);
 
   const executeTask = useCallback(async (taskDetails: TaskDetails, isVotingEnabled: boolean) => {
+    const startTime = Date.now();
     setIsProcessing(true);
     setErrorConnections([]);
     const coordinatorId = 'ada.central';
     let context: TaskContext = taskDetails.initialContext || {};
+    let tokensConsumed = 0;
     
-    addLog(LogType.INFO, `Task injected: Agent '${taskDetails.agentId}', Skill '${taskDetails.skillId}'`, 'Observer');
+    setMetrics(prev => ({ ...prev, totalTasks: prev.totalTasks + 1 }));
 
     try {
         const { agentId, skillId } = taskDetails;
@@ -112,99 +134,102 @@ export const useAdaNode = () => {
         } else if (skillId === 'fetch_customer_profile') {
             workflowPlan = [NodeType.CRM_AGENT];
         } else {
-            // Default plan for unknown skills
             workflowPlan = [agentId as NodeType];
         }
         
-        addLog(LogType.MCP_WORKFLOW_PLAN, `Workflow Plan: [${workflowPlan.join(' -> ')}]. Reason: Skill '${skillId}' requires this execution path.`, 'MCP');
+        addLog(LogType.MCP_WORKFLOW_PLAN, `PLAN: [${workflowPlan.join(' >> ')}]`, 'MCP');
         
-        // --- DYNAMIC WORKFLOW EXECUTION ---
         for (const agentToExecute of workflowPlan) {
             
-            // Step 1: Context Enrichment for CRM Agent
+            // Step 1: Context Enrichment
             if (agentToExecute === NodeType.CRM_AGENT && context.customerName) {
-                addLog(LogType.WORKFLOW_STEP, `[1] Retrieving customer profile for '${context.customerName}'.`, agentToExecute);
+                addLog(LogType.WORKFLOW_STEP, `FETCH: Customer Profile '${context.customerName}'`, agentToExecute);
                 setActiveConnections(prev => [...prev, [coordinatorId, agentToExecute]]);
-                updateNodeStatus(agentToExecute, 'processing');
+                updateNodeStatus(agentToExecute, 'processing', 'fetch_profile');
                 
                 const profile = await fetchCustomerProfile(context.customerName);
+                await sleep(400);
                 
                 updateNodeStatus(agentToExecute, 'online');
                 
                 if (profile) {
                     context.customerProfile = profile;
-                    addLog(LogType.CONTEXT_ENRICHMENT, `Context enriched with profile for '${context.customerName}'.`, agentToExecute);
+                    addLog(LogType.CONTEXT_ENRICHMENT, `ENRICHED: ${context.customerName}`, agentToExecute);
                 } else {
-                    addLog(LogType.ERROR, `Customer profile for '${context.customerName}' not found.`, agentToExecute);
+                    addLog(LogType.ERROR, `MISSING: Profile '${context.customerName}'`, agentToExecute);
                 }
             } 
             
-            // Step 2: Main Task Execution for the primary agent
+            // Step 2: Main Execution
             else if (agentToExecute === agentId) {
-                addLog(LogType.WORKFLOW_STEP, `[2] Executing primary skill '${skillId}' for agent '${agentId}'.`, agentId);
+                addLog(LogType.WORKFLOW_STEP, `EXEC: ${skillId}`, agentId);
                 let providersToRun = skill.providerIds;
                 
-                // Intelligent provider selection
                 if (context.customerProfile?.preferences?.airline === 'THY') {
-                    addLog(LogType.MCP_DECISION, `Customer preference detected. Prioritizing 'turkish_airlines' provider.`, 'MCP');
+                    addLog(LogType.MCP_DECISION, `PREF: THY detected. Filtering providers.`, 'MCP');
                     providersToRun = providersToRun.filter(p => p === 'turkish_airlines');
                 }
 
                 const toolsToRun = providersToRun.flatMap(pId => 
                     agentFrameworkConfig.providers[pId]?.supportedToolIds.map(tId => ({ providerId: pId, toolId: tId })) || []
                 );
-                addLog(LogType.TOOL_SELECTION, `MCP selected ${toolsToRun.length} tool(s) for skill '${skillId}': ${toolsToRun.map(t => t.toolId).join(', ')}`, 'MCP');
-
+                
                 const toolOutputs: ToolOutput[] = [];
                 for (const { providerId, toolId } of toolsToRun) {
-                    addLog(LogType.THINKING, `Executing tool '${toolId}' via provider '${providerId}'.`, agentId);
                     setActiveConnections(prev => [...prev, [coordinatorId, agentId]]);
-                    updateNodeStatus(agentId, 'processing');
+                    updateNodeStatus(agentId, 'processing', toolId);
                     
                     const { response, data } = await simulateProviderResponse(toolId, providerId, context);
                     context = { ...context, ...data };
                     toolOutputs.push({ toolId, providerId, response, data });
                     
-                    addLog(LogType.INFO, `Tool '${toolId}' responded: ${response?.reason || 'OK'}.`, agentId);
+                    addLog(LogType.INFO, `TOOL: ${toolId} >> OK`, agentId);
                     updateNodeStatus(agentId, 'online');
-                    await sleep(6000); // PACE REQUESTS
+                    await sleep(800); // Faster in terminal mode
                 }
 
                 // Final Consensus
                 let finalDecision: string;
                 if (isVotingEnabled && toolOutputs.length > 1) {
-                    addLog(LogType.THINKING, `Compiling simulated data for final consensus check...`, 'MCP');
-                    const prompt = `You are a master travel coordinator. Based on the following data from multiple providers, what is the single best flight option for your client and why? Be concise. Data: ${JSON.stringify(toolOutputs.map(o => o.data))}`;
-                    finalDecision = await generateContent(prompt);
-                    addLog(LogType.CONSENSUS, `Final decision from AI coordinator: ${finalDecision}`, 'Gemini');
+                    addLog(LogType.THINKING, `CONSENSUS: Aggregating results...`, 'MCP');
+                    const prompt = `Best option based on: ${JSON.stringify(toolOutputs.map(o => o.data))}?`;
+                    const genResult = await generateContent(prompt);
+                    finalDecision = genResult.text;
+                    tokensConsumed += genResult.tokens;
+                    addLog(LogType.CONSENSUS, `DECISION: ${finalDecision}`, 'AI');
                 } else {
-                    finalDecision = toolOutputs.map(o => o.data?.summary).filter(Boolean).join(' ') || "Task completed.";
+                    finalDecision = toolOutputs.map(o => o.data?.summary).filter(Boolean).join('; ') || "Done.";
                 }
 
-                // SEAL
                 if (agentFrameworkConfig.general.auto_seal) {
-                    addLog(LogType.SEAL, `Sealing operation results for skill '${skillId}'.`, 'MCP');
+                    addLog(LogType.SEAL, `SEALING: ${skillId}`, 'MCP');
                     [agentId, ...workflowPlan].forEach(id => updateNodeStatus(id, 'sealing'));
-                    await sleep(1500);
-                    
-                    addLog(LogType.SUCCESS, finalDecision, 'Coordinator');
+                    await sleep(500);
+                    addLog(LogType.SUCCESS, `DONE: ${finalDecision}`, 'MCP');
                     saveStateToLocalStorage();
-                    
                     [agentId, ...workflowPlan].forEach(id => updateNodeStatus(id, 'online'));
                 } else {
-                    addLog(LogType.SUCCESS, finalDecision, 'Coordinator');
+                    addLog(LogType.SUCCESS, `DONE: ${finalDecision}`, 'MCP');
                 }
             }
         }
 
+        setMetrics(prev => ({
+            ...prev,
+            successfulTasks: prev.successfulTasks + 1,
+            totalLatencyMs: prev.totalLatencyMs + (Date.now() - startTime),
+            totalTokens: prev.totalTokens + tokensConsumed
+        }));
+
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      addLog(LogType.ERROR, `Task failed: ${errorMessage}`, 'MCP');
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      addLog(LogType.ERROR, `FAIL: ${errorMessage}`, 'MCP');
+      setMetrics(prev => ({ ...prev, failedTasks: prev.failedTasks + 1 }));
     } finally {
       setIsProcessing(false);
       setActiveConnections([]);
     }
   }, [addLog, agentFrameworkConfig, saveStateToLocalStorage, updateNodeStatus]);
 
-  return { nodes, agentFrameworkConfig, logs, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog };
+  return { nodes, agentFrameworkConfig, logs, isProcessing, executeTask, activeConnections, addNode, loadStateFromLocalStorage, errorConnections, addLog, metrics };
 };

@@ -1,133 +1,60 @@
 
-import React, { useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { LogEntry, LogType } from '../types';
-import { ArrowRight, ArrowLeft, CheckCircle, XCircle, Info, GraduationCap, RefreshCw, CheckCheck, Lightbulb, Scale, Undo2, Zap, TimerOff, Clock, ClipboardCheck, ShieldCheck, UserCheck, Workflow, BrainCircuit, Filter, X, Sparkles } from 'lucide-react';
-import ActivityLogFilters from './ActivityLogFilters';
 
 interface ActivityLogProps {
   logs: LogEntry[];
   onRequestAnalysis: (type: 'summary' | 'errors' | 'explain_error', log?: LogEntry) => void;
 }
 
-const getLogStyle = (type: LogType) => {
-  switch (type) {
-    case LogType.INFO: return { icon: <Info size={16} />, color: 'text-blue-400' };
-    case LogType.REQUEST: return { icon: <ArrowRight size={16} />, color: 'text-yellow-400' };
-    case LogType.RESPONSE: return { icon: <ArrowLeft size={16} />, color: 'text-purple-400' };
-    case LogType.SUCCESS: return { icon: <CheckCircle size={16} />, color: 'text-green-400' };
-    case LogType.ERROR: return { icon: <XCircle size={16} />, color: 'text-red-400' };
-    case LogType.LEARNING: return { icon: <GraduationCap size={16} />, color: 'text-pink-400' };
-    case LogType.ACK: return { icon: <CheckCheck size={16} />, color: 'text-teal-400' };
-    case LogType.RETRY: return { icon: <RefreshCw size={16} />, color: 'text-orange-400' };
-    case LogType.THINKING: return { icon: <Lightbulb size={16} />, color: 'text-gray-400' };
-    case LogType.VOTING: return { icon: <Scale size={16} />, color: 'text-orange-300' };
-    case LogType.CONSENSUS: return { icon: <CheckCheck size={16} />, color: 'text-green-300' };
-    case LogType.BACKTRACK: return { icon: <Undo2 size={16} />, color: 'text-yellow-300' };
-    case LogType.RTC_MESSAGE: return { icon: <Zap size={16} />, color: 'text-cyan-400' };
-    case LogType.TIMEOUT: return { icon: <TimerOff size={16} />, color: 'text-red-500' };
-    case LogType.TOOL_SELECTION: return { icon: <ClipboardCheck size={16} />, color: 'text-purple-300' };
-    case LogType.SEAL: return { icon: <ShieldCheck size={16} />, color: 'text-cyan-300' };
-    case LogType.CONTEXT_ENRICHMENT: return { icon: <UserCheck size={16} />, color: 'text-teal-300' };
-    case LogType.WORKFLOW_STEP: return { icon: <Workflow size={16} />, color: 'text-indigo-300' };
-    case LogType.MCP_DECISION: return { icon: <BrainCircuit size={16} />, color: 'text-pink-400' };
-    case LogType.MCP_WORKFLOW_PLAN: return { icon: <Workflow size={16} />, color: 'text-indigo-400' };
-    default: return { icon: <Info size={16} />, color: 'text-gray-400' };
-  }
-};
+const LogLine: React.FC<{ log: LogEntry, onClick: () => void }> = ({ log, onClick }) => {
+    let color = 'text-[var(--text-primary)]';
+    let prefix = 'INFO';
+    
+    switch(log.type) {
+        case LogType.ERROR: color = 'text-[var(--error-color)]'; prefix = 'ERR '; break;
+        case LogType.SUCCESS: color = 'text-[var(--success-color)]'; prefix = 'OK  '; break;
+        case LogType.MCP_DECISION: color = 'text-[var(--accent-color)]'; prefix = 'MCP '; break;
+        case LogType.MCP_WORKFLOW_PLAN: color = 'text-[var(--warning-color)]'; prefix = 'PLAN'; break;
+        case LogType.TOOL_SELECTION: color = 'text-[#d7ba7d]'; prefix = 'TOOL'; break; // VSCode yellow
+        default: prefix = log.type.substring(0, 4).toUpperCase().padEnd(4);
+    }
 
-const VoteDistributionChart: React.FC<{ distribution: Record<string, number> }> = ({ distribution }) => {
-    // FIX: Refactored to use Object.keys to ensure correct type inference for vote counts.
-    const totalVotes = Object.keys(distribution).reduce((sum, key) => sum + distribution[key], 0);
-    if (totalVotes === 0) return null;
-    const getBarColor = (decision: string) => decision.includes('confirm') ? 'bg-green-500' : 'bg-red-500';
     return (
-        <div className="mt-2 space-y-1.5 pr-2">
-            {Object.keys(distribution).map((decision) => {
-                const count = distribution[decision];
-                return (
-                    <div key={decision} className="flex items-center gap-2 text-xs">
-                        <span className="w-20 capitalize text-gray-400 truncate">{decision} ({count})</span>
-                        <div className="flex-grow bg-black/40 rounded-full h-3">
-                            <div className={`h-3 rounded-full ${getBarColor(decision)}`} style={{ width: `${(count / totalVotes) * 100}%`}}/>
-                        </div>
-                    </div>
-                );
-            })}
+        <div className="flex gap-2 hover:bg-[var(--selection-bg)] hover:text-white px-2 py-0.5 cursor-pointer" onClick={onClick}>
+            <span className="text-[var(--text-secondary)] whitespace-nowrap">{log.timestamp}</span>
+            <span className={`font-bold ${color} whitespace-nowrap`}>[{prefix}]</span>
+            <span className="text-[var(--accent-color)] whitespace-nowrap w-24 truncate hidden md:block">{log.source || 'KERNEL'}</span>
+            <span className={`whitespace-pre-wrap break-all ${color}`}>{log.message}</span>
         </div>
     );
-};
+}
 
 const ActivityLog: React.FC<ActivityLogProps> = ({ logs, onRequestAnalysis }) => {
-  const [typeFilters, setTypeFilters] = useState<Set<LogType>>(new Set());
-  const [sourceFilters, setSourceFilters] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const availableSources = [...new Set(logs.map(log => log.source).filter(Boolean))] as string[];
-
-  const filteredLogs = logs.filter(log => {
-    const typeMatch = typeFilters.size === 0 || typeFilters.has(log.type);
-    const sourceMatch = sourceFilters.size === 0 || (log.source && sourceFilters.has(log.source));
-    return typeMatch && sourceMatch;
-  });
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   return (
-    <div className="panel-glow p-4 flex flex-col min-h-0 h-full">
-      <ActivityLogFilters
-        logs={logs}
-        filteredCount={filteredLogs.length}
-        typeFilters={typeFilters}
-        setTypeFilters={setTypeFilters}
-        sourceFilters={sourceFilters}
-        setSourceFilters={setSourceFilters}
-        availableSources={availableSources}
-        onRequestAnalysis={onRequestAnalysis}
-      />
-      <div className="flex-grow bg-black/30 rounded-lg p-2 overflow-y-auto mt-2">
-        {filteredLogs.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-[var(--color-text-dim)]">
-            {logs.length === 0 ? 'Awaiting task initiation...' : 'No logs match the current filters.'}
-          </div>
-        ) : (
-          <ul className="space-y-1 text-sm">
-            {filteredLogs.map((log) => {
-              const { icon, color } = getLogStyle(log.type);
-              return (
-                <li key={log.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-white/5 group">
-                  <span className={`mt-0.5 ${color}`}>{icon}</span>
-                  <div className="flex-grow">
-                    <div className="flex justify-between items-baseline">
-                      <p className={`font-semibold ${color}`}>
-                        {log.type} {log.source ? `(${log.source})` : ''}
-                        {log.direction === 'outbound' && ' ->'}
-                        {log.direction === 'inbound' && ' <-'}
-                      </p>
-                      <p className="text-xs text-gray-500 font-mono">{log.timestamp}</p>
-                    </div>
-                    <p className="text-[var(--color-text)] whitespace-pre-wrap">{log.message}</p>
-                    {log.requestId && (
-                      <div className="text-xs text-gray-500 font-mono mt-1 flex items-center gap-4">
-                        <span>ID: {log.requestId}</span>
-                        {log.responseTimeMs !== undefined && (
-                          <span className="flex items-center gap-1"><Clock size={12} /> {log.responseTimeMs}ms</span>
-                        )}
-                      </div>
-                    )}
-                    {log.voteDistribution && <VoteDistributionChart distribution={log.voteDistribution} />}
-                  </div>
-                   {log.type === LogType.ERROR && (
-                      <button 
-                        onClick={() => onRequestAnalysis('explain_error', log)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-yellow-400 hover:text-yellow-300"
-                        title="Analyze Error with Gemini"
-                      >
-                        <Sparkles size={16} />
-                      </button>
-                    )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+    <div className="terminal-panel flex flex-col h-full font-mono text-xs">
+        <div className="flex items-center justify-between p-2 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+            <span className="font-bold text-[var(--text-secondary)]">/var/log/ada.log</span>
+            <span className="text-[var(--text-secondary)]">{logs.length} lines</span>
+        </div>
+        <div ref={scrollRef} className="flex-grow overflow-y-auto p-1">
+            {logs.map(log => (
+                <LogLine 
+                    key={log.id} 
+                    log={log} 
+                    onClick={() => log.type === LogType.ERROR ? onRequestAnalysis('explain_error', log) : null} 
+                />
+            ))}
+            <div className="h-4 w-2 bg-[var(--text-secondary)] animate-pulse ml-2 mt-1"></div>
+        </div>
     </div>
   );
 };

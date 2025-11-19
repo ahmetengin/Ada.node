@@ -1,201 +1,139 @@
-
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAdaNode } from './hooks/useAdaNode';
 import Header from './components/Header';
 import NodeStatusPanel from './components/NodeStatusPanel';
 import ActivityLog from './components/ActivityLog';
 import TaskInitiator from './components/TaskInitiator';
 import { useLiveConversation } from './hooks/useLiveConversation';
-import { TaskDetails, LogType, AgentFrameworkConfig } from './types';
+import { TaskDetails, AgentFrameworkConfig, LogEntry, LogType } from './types';
 import EditorPanel from './components/EditorPanel';
 import TerminalPanel from './components/TerminalPanel';
 import LiveConversationPanel from './components/LiveConversationPanel';
 import FrameworkPanel from './components/FrameworkPanel';
-import { Bot, Network } from 'lucide-react';
-
-type LeftPanelTab = 'framework' | 'comms';
+import AnalysisModal from './components/AnalysisModal';
+import Scoreboard from './components/Scoreboard';
+import { generateAnalyticContent } from './services/geminiService';
 
 const App: React.FC = () => {
   const [isVotingEnabled, setIsVotingEnabled] = useState(true);
-  const [leftPanelTab, setLeftPanelTab] = useState<LeftPanelTab>('framework');
-  // FIX: Added `activeConnections` to the destructuring from useAdaNode hook.
-  const { nodes, agentFrameworkConfig, logs, isProcessing, executeTask, addNode, loadStateFromLocalStorage, errorConnections, addLog, activeConnections } = useAdaNode();
+  
+  // Analysis Modal State
+  const [analysisState, setAnalysisState] = useState({
+    isOpen: false,
+    title: '',
+    content: '',
+    isLoading: false
+  });
+
+  const { nodes, agentFrameworkConfig, logs, isProcessing, executeTask, addNode, metrics, addLog } = useAdaNode();
   const conversation = useLiveConversation();
 
   const [selectedTask, setSelectedTask] = useState<TaskDetails | null>(null);
-  const [editorContent, setEditorContent] = useState<string>('');
   
-  const generateEditorContent = useCallback((taskDetails: TaskDetails | null, config: AgentFrameworkConfig | null) => {
-    if (!taskDetails || !config) {
-      return `// Select a capability from the Framework panel to see its execution plan.`;
-    }
-    const { agentId, skillId, providerId, toolId } = taskDetails;
-    const agent = config.modules[agentId];
-    const skill = agent?.skills.find(s => s.id === skillId);
-    const provider = providerId ? config.providers[providerId] : null;
-    const tool = toolId ? config.tools[toolId] : null;
-
-    return `/**
- * AGENT:    ${agentId}
- * SKILL:    ${skill?.description || 'N/A'}
- * PROVIDER: ${provider?.description || 'All'}
- * TOOL:     ${tool?.description || 'All'}
- * MAKER:    ${isVotingEnabled ? `ON` : 'OFF'}
- */
-const task = {
-  agent: "${agentId}",
-  skill: "${skillId}",
-  context: { customerName: "Ahmet Bey" } // Example context
-};
-
-// 1. MCP enriches context via CRM Agent
-const enrichedContext = await crm_agent.fetch_customer_profile(task.context);
-
-// 2. MCP makes an intelligent decision
-const selectedProvider = mcp.decideProvider(enrichedContext); // -> 'turkish_airlines'
-
-// 3. MCP executes a dynamic workflow
-const flightData = await selectedProvider.search_flights(enrichedContext);
-const marinaData = await maritime_agent.check_availability(enrichedContext);
-
-// 4. Final result is composed and sealed
-const finalPlan = composeResult(flightData, marinaData);
-seal(finalPlan);
-`;
-  }, [isVotingEnabled]);
-
   useEffect(() => {
     if (agentFrameworkConfig && !selectedTask) {
         const firstAgentId = Object.keys(agentFrameworkConfig.modules)[0];
         const firstSkill = agentFrameworkConfig.modules[firstAgentId]?.skills[0];
         if (firstAgentId && firstSkill) {
-            const initialTask: TaskDetails = { agentId: firstAgentId, skillId: firstSkill.id };
-            setSelectedTask(initialTask);
+            setSelectedTask({ agentId: firstAgentId, skillId: firstSkill.id });
         }
     }
   }, [agentFrameworkConfig, selectedTask]);
 
-  useEffect(() => {
-      setEditorContent(generateEditorContent(selectedTask, agentFrameworkConfig));
-  }, [isVotingEnabled, selectedTask, agentFrameworkConfig, generateEditorContent]);
-
-
-  const handleTaskSelect = (taskDetails: TaskDetails) => {
-    setSelectedTask(taskDetails);
-  };
-  
   const handleCommandSubmit = (command: string) => {
-    addLog(LogType.INFO, `> ${command}`, 'Terminal');
+    addLog(LogType.INFO, `stdin: ${command}`, 'USER');
     const parts = command.trim().split(/\s+/);
     const [action, agentId, skillId] = parts;
 
     if (action === 'run' && agentId && skillId) {
        const taskDetails: TaskDetails = { agentId, skillId, initialContext: { customerName: "Ahmet Bey" } };
-       setSelectedTask(taskDetails);
        executeTask(taskDetails, isVotingEnabled);
-    } else if (command.trim() === 'help') {
-        addLog(LogType.INFO, 'Available command:\n  run <agent_id> <skill_id>', 'System');
-    }
-    else {
-        addLog(LogType.ERROR, `Unknown command: '${command}'. Type 'help' for available commands.`, 'System');
+    } else if (command === 'help') {
+       addLog(LogType.INFO, 'usage: run <agent> <skill>', 'SYS');
+    } else {
+       addLog(LogType.ERROR, 'command not found', 'SYS');
     }
   };
 
+  const handleRequestAnalysis = async (type: 'summary' | 'errors' | 'explain_error', logEntry?: LogEntry) => {
+    const title = type === 'errors' ? 'ERROR_DUMP' : type === 'summary' ? 'EXEC_SUMMARY' : 'ERR_TRACE';
+    setAnalysisState({ isOpen: true, title, content: '', isLoading: true });
 
-  const handleExecuteTask = (task: TaskDetails) => {
-    executeTask({ ...task, initialContext: { customerName: "Ahmet Bey" } }, isVotingEnabled);
-  }
+    let prompt = '';
+    if (type === 'summary') {
+        prompt = `Analyze logs. Summarize system state.\nLogs:\n${logs.slice(0, 50).map(l => l.message).join('\n')}`;
+    } else if (type === 'explain_error' && logEntry) {
+        prompt = `Explain error: ${logEntry.message}`;
+    }
+
+    try {
+        const result = await generateAnalyticContent(prompt, 'gemini-2.5-flash');
+        setAnalysisState(prev => ({ ...prev, content: result.text, isLoading: false }));
+    } catch (error) {
+        setAnalysisState(prev => ({ ...prev, content: 'API_FAIL', isLoading: false }));
+    }
+  };
 
   return (
-    <div className="min-h-screen text-gray-200 font-sans flex flex-col relative bg-[var(--color-bg)]">
-      <Header 
-        isVotingEnabled={isVotingEnabled}
-        onToggleVoting={setIsVotingEnabled}
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] relative">
+      <div className="scanline"></div>
+      <Header isVotingEnabled={isVotingEnabled} onToggleVoting={setIsVotingEnabled} />
+      
+      <div className="flex-grow p-1 gap-1 grid grid-cols-12 grid-rows-6 overflow-hidden z-10">
+         
+         {/* Left Column: Tree & Manual Control (2/12 width) */}
+         <div className="col-span-2 row-span-4">
+            <FrameworkPanel agentFrameworkConfig={agentFrameworkConfig} onTaskSelect={setSelectedTask} selectedTask={selectedTask} />
+         </div>
+         <div className="col-span-2 row-span-2">
+            <TaskInitiator 
+                onSubmit={(t) => executeTask({...t, initialContext: { customerName: "Ahmet Bey" }}, isVotingEnabled)} 
+                isProcessing={isProcessing} 
+                agentFrameworkConfig={agentFrameworkConfig} 
+                selectedTask={selectedTask} 
+            />
+         </div>
+
+         {/* Center Column: Visualization (7/12 width) */}
+         <div className="col-span-7 row-span-1">
+            <Scoreboard metrics={metrics} />
+         </div>
+         <div className="col-span-7 row-span-3">
+             <NodeStatusPanel nodes={nodes} isProcessing={isProcessing} addNode={addNode} />
+         </div>
+         <div className="col-span-7 row-span-2">
+             <ActivityLog logs={logs} onRequestAnalysis={handleRequestAnalysis} />
+         </div>
+
+         {/* Right Column: Comms & Code (3/12 width) */}
+         <div className="col-span-3 row-span-2">
+             <LiveConversationPanel 
+                status={conversation.status} 
+                transcriptions={conversation.transcriptions}
+                startConversation={conversation.startConversation}
+                stopConversation={conversation.stopConversation}
+                stream={conversation.videoStream}
+             />
+         </div>
+         <div className="col-span-3 row-span-4">
+             <EditorPanel content="// Dynamic workflow visualization will appear here..." /> 
+         </div>
+      </div>
+
+      {/* Bottom Bar: Terminal Input */}
+      <div className="h-8 flex-shrink-0 border-t border-[var(--border-color)] z-10">
+        <TerminalPanel logs={logs} onCommandSubmit={handleCommandSubmit} agentFrameworkConfig={agentFrameworkConfig} />
+      </div>
+
+      <AnalysisModal 
+        isOpen={analysisState.isOpen}
+        onClose={() => setAnalysisState(prev => ({ ...prev, isOpen: false }))}
+        title={analysisState.title}
+        content={analysisState.content}
+        isLoading={analysisState.isLoading}
       />
-      <main className="flex-grow p-4 md:p-6 grid gap-4" 
-          style={{ 
-              gridTemplateAreas: `
-                  "sidebar main"
-                  "terminal terminal"`,
-              gridTemplateColumns: 'minmax(350px, 2fr) 8fr',
-              gridTemplateRows: '1fr auto',
-              height: 'calc(100vh - 80px)'
-          }}>
-        
-        <div style={{ gridArea: 'sidebar' }} className="panel-glow flex flex-col min-h-0">
-            <div className="flex-shrink-0 border-b border-white/10 p-2 flex">
-                <TabButton icon={<Network size={16}/>} label="Framework" isActive={leftPanelTab === 'framework'} onClick={() => setLeftPanelTab('framework')} />
-                <TabButton icon={<Bot size={16}/>} label="Live Comms" isActive={leftPanelTab === 'comms'} onClick={() => setLeftPanelTab('comms')} />
-            </div>
-            <div className="flex-grow p-2 min-h-0">
-                {leftPanelTab === 'framework' && <FrameworkPanel agentFrameworkConfig={agentFrameworkConfig} onTaskSelect={handleTaskSelect} selectedTask={selectedTask} />}
-                {leftPanelTab === 'comms' && (
-                    <LiveConversationPanel 
-                        status={conversation.status}
-                        transcriptions={conversation.transcriptions}
-                        startConversation={conversation.startConversation}
-                        stopConversation={conversation.stopConversation}
-                        isOtherTaskRunning={isProcessing}
-                        stream={conversation.videoStream}
-                        backgroundEffect={conversation.backgroundEffect}
-                        setBackgroundEffect={conversation.setBackgroundEffect}
-                        setCustomBgUrl={conversation.setCustomBgUrl}
-                        isSegmenterLoading={conversation.isSegmenterLoading}
-                    />
-                )}
-            </div>
-        </div>
-        
-        {/* FIX: Merged two style properties into one to avoid duplicate attribute error. */}
-        <div className="grid gap-4 min-h-0"
-            style={{
-                gridArea: 'main',
-                gridTemplateRows: 'auto 1fr',
-                gridTemplateColumns: '6fr 4fr'
-            }}
-        >
-            <div className="col-span-2">
-                <NodeStatusPanel 
-                  nodes={nodes} 
-                  isProcessing={isProcessing} 
-                  activeConnections={activeConnections}
-                  errorConnections={errorConnections}
-                  addNode={addNode} 
-                  restoreFromCheckpoint={loadStateFromLocalStorage}
-                />
-            </div>
-            <div className="min-h-0">
-                 <EditorPanel content={editorContent} />
-            </div>
-            <div className="min-h-0">
-                 <TaskInitiator 
-                  onSubmit={handleExecuteTask} 
-                  isProcessing={isProcessing || conversation.status !== 'idle'}
-                  agentFrameworkConfig={agentFrameworkConfig}
-                  isVotingEnabled={isVotingEnabled}
-                  selectedTask={selectedTask}
-                  onTaskChange={handleTaskSelect}
-                />
-            </div>
-        </div>
-        
-        <div style={{ gridArea: 'terminal' }} className="flex flex-col min-h-0">
-             <TerminalPanel logs={logs} onCommandSubmit={handleCommandSubmit} agentFrameworkConfig={agentFrameworkConfig} />
-        </div>
-      </main>
     </div>
   );
 };
-
-const TabButton: React.FC<{icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void}> = ({ icon, label, isActive, onClick }) => (
-    <button 
-        onClick={onClick}
-        className={`flex-1 flex items-center justify-center gap-2 p-2 text-sm rounded-md transition-colors ${isActive ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]' : 'text-[var(--color-text-dim)] hover:bg-white/10'}`}
-    >
-        {icon}
-        <span>{label}</span>
-    </button>
-);
-
 
 export default App;

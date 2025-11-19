@@ -47,7 +47,7 @@ const executeRequest = async <T>(requestFn: () => Promise<T>, functionName: stri
                 }
                 console.warn(`Rate limit hit on ${functionName}. Retrying in ${delay}ms...`);
                 await sleep(delay);
-                delay *= 1.5; // Less aggressive backoff
+                delay *= 1.5;
             } else {
                 console.error(`Error in ${functionName} with Gemini:`, error);
                 return `[ERROR] An unexpected error occurred while generating content.`;
@@ -57,7 +57,10 @@ const executeRequest = async <T>(requestFn: () => Promise<T>, functionName: stri
     return `[ERROR] Failed in ${functionName} after all retries.`;
 }
 
-export const generateContent = async (prompt: string): Promise<string> => {
+// Estimate token count based on characters (rough approximation for visualization)
+const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+
+export const generateContent = async (prompt: string): Promise<{text: string, tokens: number}> => {
     const result = await executeRequest(async () => {
         const client = getAiClient();
         const response = await client.models.generateContent({
@@ -67,10 +70,12 @@ export const generateContent = async (prompt: string): Promise<string> => {
         });
         return response.text;
     }, 'generateContent');
-    return typeof result === 'string' ? result : '';
+    
+    const text = typeof result === 'string' ? result : '';
+    return { text, tokens: estimateTokens(prompt) + estimateTokens(text) };
 };
 
-export const generateAnalyticContent = async (prompt: string, model: 'gemini-2.5-flash' | 'gemini-3-pro-preview'): Promise<string> => {
+export const generateAnalyticContent = async (prompt: string, model: 'gemini-2.5-flash' | 'gemini-3-pro-preview'): Promise<{text: string, tokens: number}> => {
     const result = await executeRequest(async () => {
          const client = getAiClient();
         const response = await client.models.generateContent({
@@ -80,12 +85,14 @@ export const generateAnalyticContent = async (prompt: string, model: 'gemini-2.5
                 temperature: model === 'gemini-3-pro-preview' ? 0.4 : 0.8,
             }
         });
-        return response.text.trim();
+        return response.text?.trim() || '';
     }, 'generateAnalyticContent');
-    return typeof result === 'string' ? result : '';
+    
+    const text = typeof result === 'string' ? result : '';
+    return { text, tokens: estimateTokens(prompt) + estimateTokens(text) };
 }
 
-export const generateVotableContent = async (prompt: string): Promise<VotableResponse | null> => {
+export const generateVotableContent = async (prompt: string): Promise<{response: VotableResponse | null, tokens: number}> => {
     const result = await executeRequest(async () => {
         const client = getAiClient();
         const response = await client.models.generateContent({
@@ -98,9 +105,10 @@ export const generateVotableContent = async (prompt: string): Promise<VotableRes
             }
         });
 
-        const jsonString = response.text.trim();
+        const jsonString = response.text?.trim() || '{}';
         return JSON.parse(jsonString) as VotableResponse;
     }, 'generateVotableContent');
     
-    return typeof result === 'object' && result !== null ? result as VotableResponse : null;
+    const response = typeof result === 'object' && result !== null ? result as VotableResponse : null;
+    return { response, tokens: estimateTokens(prompt) + 200 }; // Flat +200 for JSON overhead
 };

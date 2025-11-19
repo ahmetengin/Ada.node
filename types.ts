@@ -14,6 +14,8 @@ export interface Node {
   type: NodeType;
   status: 'online' | 'offline' | 'processing' | 'sealing';
   instanceName?: string;
+  lastActive?: number;
+  currentTask?: string;
 }
 
 export interface Tool {
@@ -74,25 +76,25 @@ export interface ToolOutput {
 
 export enum LogType {
   INFO = 'INFO',
-  REQUEST = 'REQUEST',
-  RESPONSE = 'RESPONSE',
-  SUCCESS = 'SUCCESS',
-  ERROR = 'ERROR',
-  LEARNING = 'LEARNING',
+  REQUEST = 'REQ',
+  RESPONSE = 'RESP',
+  SUCCESS = 'SUCC',
+  ERROR = 'ERR',
+  LEARNING = 'LRN',
   ACK = 'ACK',
-  RETRY = 'RETRY',
-  THINKING = 'THINKING',
-  VOTING = 'VOTING',
-  CONSENSUS = 'CONSENSUS',
-  BACKTRACK = 'BACKTRACK',
-  RTC_MESSAGE = 'RTC_MESSAGE',
-  TIMEOUT = 'TIMEOUT',
-  TOOL_SELECTION = 'TOOL_SELECTION',
+  RETRY = 'RTRY',
+  THINKING = 'THNK',
+  VOTING = 'VOTE',
+  CONSENSUS = 'CNSS',
+  BACKTRACK = 'BACK',
+  RTC_MESSAGE = 'RTC',
+  TIMEOUT = 'T/O',
+  TOOL_SELECTION = 'TOOL',
   SEAL = 'SEAL',
-  CONTEXT_ENRICHMENT = 'CONTEXT_ENRICHMENT',
-  WORKFLOW_STEP = 'WORKFLOW_STEP',
-  MCP_DECISION = 'MCP_DECISION',
-  MCP_WORKFLOW_PLAN = 'MCP_WORKFLOW_PLAN',
+  CONTEXT_ENRICHMENT = 'CXT',
+  WORKFLOW_STEP = 'STEP',
+  MCP_DECISION = 'DEC',
+  MCP_WORKFLOW_PLAN = 'PLAN',
 }
 
 export interface LogEntry {
@@ -115,16 +117,6 @@ export interface TranscriptionEntry {
   text: string;
 }
 
-export interface GeoPoint {
-  lat: number;
-  lng: number;
-}
-
-export interface RouteData {
-  from: { name: string; coords: GeoPoint };
-  to: { name: string; coords: GeoPoint };
-}
-
 export interface VoteOutcome {
   isConsensus: boolean;
   majorityDecision: string | null;
@@ -137,4 +129,14 @@ export interface VotableResponse {
   decision: string;
   reason: string;
   confidence: number;
+}
+
+export interface SystemMetrics {
+    totalTasks: number;
+    successfulTasks: number;
+    failedTasks: number;
+    totalTokens: number;
+    totalLatencyMs: number;
+    activeAgents: number;
+    avgConfidence: number;
 }

@@ -1,132 +1,127 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ada Node AI Coordinator</title>
+    <title>Ada Node Observer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- TensorFlow.js and Body Segmentation Model -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-segmentation@1.0.2/dist/body-segmentation.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
-    <!-- Fix: Explicitly load MediaPipe selfie segmentation to resolve constructor error -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
       :root {
-        --color-bg: #03041a;
-        --color-panel: rgba(10, 15, 44, 0.5);
-        --color-primary: #22d3ee; /* cyan-400 */
-        --color-primary-glow: rgba(34, 211, 238, 0.7);
-        --color-secondary: #f472b6; /* pink-400 */
-        --color-secondary-glow: rgba(244, 114, 182, 0.6);
-        --color-text: #e5e7eb; /* gray-200 */
-        --color-text-dim: #9ca3af; /* gray-400 */
+        /* Ghostty Dark Theme (Default) */
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #252526;
+        --bg-tertiary: #2d2d2d;
+        --text-primary: #cccccc;
+        --text-secondary: #808080;
+        --border-color: #3e3e3e;
+        --accent-color: #4ec9b0;
+        --success-color: #6a9955;
+        --error-color: #f14c4c;
+        --warning-color: #cca700;
+        --selection-bg: #264f78;
+        
+        --font-mono: 'JetBrains Mono', monospace;
+      }
+
+      [data-theme="light"] {
+        /* Solarized Light / Paper Theme */
+        --bg-primary: #fdf6e3;
+        --bg-secondary: #eee8d5;
+        --bg-tertiary: #e0e0e0;
+        --text-primary: #657b83;
+        --text-secondary: #93a1a1;
+        --border-color: #d3d3d3;
+        --accent-color: #268bd2;
+        --success-color: #859900;
+        --error-color: #dc322f;
+        --warning-color: #b58900;
+        --selection-bg: #d3d3d3;
       }
 
       body {
-        background-color: var(--color-bg);
-        font-family: 'Roboto Condensed', sans-serif;
-      }
-      
-      #background-glow {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.15) 0%, transparent 60%);
-        animation: background-pulse 10s infinite alternate;
-        z-index: -1;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-mono);
+        overflow: hidden;
       }
 
-      @keyframes background-pulse {
-        0% { transform: scale(1); opacity: 0.8; }
-        100% { transform: scale(1.2); opacity: 1; }
-      }
-
-      .panel-glow {
-        background-color: var(--color-panel);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(34, 211, 238, 0.2);
-        border-radius: 16px;
-        box-shadow: 0 0 20px rgba(34, 211, 238, 0.1), inset 0 0 15px rgba(34, 211, 238, 0.05);
-      }
-
-      /* Custom scrollbar */
+      /* Terminal-style Scrollbar */
       ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 10px;
+        height: 10px;
       }
       ::-webkit-scrollbar-track {
-        background: transparent;
+        background: var(--bg-primary);
+        border-left: 1px solid var(--border-color);
       }
       ::-webkit-scrollbar-thumb {
-        background: var(--color-primary-glow);
-        border-radius: 3px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--bg-primary);
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: var(--color-primary);
+        background: var(--text-secondary);
+      }
+      ::-webkit-scrollbar-corner {
+        background: var(--bg-primary);
+      }
+
+      /* Utilities */
+      .font-mono { font-family: var(--font-mono); }
+      .border-theme { border-color: var(--border-color); }
+      .bg-theme { background-color: var(--bg-primary); }
+      .bg-theme-secondary { background-color: var(--bg-secondary); }
+      .text-theme { color: var(--text-primary); }
+      .text-dim { color: var(--text-secondary); }
+      .text-accent { color: var(--accent-color); }
+      
+      .terminal-border {
+        border: 1px solid var(--border-color);
       }
       
-      .leaflet-tile-pane {
-        filter: grayscale(1) invert(1) brightness(0.9) contrast(1.2) hue-rotate(180deg) saturate(1.5);
+      .terminal-panel {
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
       }
 
-      /* Animations */
-      @keyframes pulse-glow-green {
-        0%, 100% { border-color: rgba(74, 222, 128, 0.7); box-shadow: 0 0 15px rgba(74, 222, 128, 0.8); }
-        50% { border-color: rgba(74, 222, 128, 1); box-shadow: 0 0 25px rgba(74, 222, 128, 1); }
+      .blink {
+        animation: blink-animation 1s steps(2, start) infinite;
       }
-      @keyframes pulse-glow-yellow {
-        0%, 100% { border-color: rgba(250, 204, 21, 0.7); box-shadow: 0 0 15px rgba(250, 204, 21, 0.5); }
-        50% { border-color: rgba(250, 204, 21, 1); box-shadow: 0 0 25px rgba(250, 204, 21, 1); }
-      }
-       @keyframes pulse-glow-red {
-        0%, 100% { border-color: rgba(248, 113, 113, 0.7); box-shadow: 0 0 15px rgba(248, 113, 113, 0.8); }
-        50% { border-color: rgba(248, 113, 113, 1); box-shadow: 0 0 25px rgba(248, 113, 113, 1); }
-      }
-      @keyframes pulse-glow-cyan {
-        0%, 100% { border-color: rgba(34, 211, 238, 0.7); box-shadow: 0 0 20px rgba(34, 211, 238, 0.8); }
-        50% { border-color: rgba(34, 211, 238, 1); box-shadow: 0 0 30px rgba(34, 211, 238, 1); }
-      }
-      .animate-pulse-green { animation: pulse-glow-green 1.5s infinite ease-in-out; }
-      .animate-pulse-yellow { animation: pulse-glow-yellow 1.5s infinite ease-in-out; }
-      .animate-pulse-red { animation: pulse-glow-red 1.5s infinite ease-in-out; }
-      .animate-pulse-cyan { animation: pulse-glow-cyan 1s infinite ease-in-out; }
-
-      @keyframes line-flow {
-        to {
-            stroke-dashoffset: -1000;
-        }
+      @keyframes blink-animation {
+        to { visibility: hidden; }
       }
 
-      .data-flow-line {
-        stroke-width: 2;
-        stroke-dasharray: 4, 8;
-        animation: line-flow 60s linear infinite;
-      }
-      .line-pulse-green {
-        stroke: #4ade80; /* green-400 */
-        filter: drop-shadow(0 0 4px #4ade80);
-      }
-      .line-pulse-red {
-        stroke: #f87171; /* red-400 */
-        filter: drop-shadow(0 0 4px #f87171);
+      .scanline {
+        background: linear-gradient(
+          to bottom,
+          rgba(255,255,255,0),
+          rgba(255,255,255,0) 50%,
+          rgba(0,0,0,0.02) 50%,
+          rgba(0,0,0,0.02)
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 50;
+        opacity: 0.5;
       }
 
-      .data-packet {
-        fill: var(--color-primary);
-        filter: drop-shadow(0 0 3px var(--color-primary-glow));
+      /* Selection */
+      ::selection {
+        background: var(--selection-bg);
+        color: white;
       }
     </style>
   <script type="importmap">
@@ -141,8 +136,7 @@
 }
 </script>
 </head>
-  <body class="text-gray-100">
-    <div id="background-glow"></div>
+  <body data-theme="dark">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
